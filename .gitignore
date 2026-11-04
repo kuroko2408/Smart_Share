@@ -91,6 +91,7 @@ database/local_dumps/
 # (alembic.ini contains connection strings — use alembic.ini.example)
 alembic.ini
 !alembic.ini.example
+!backend/alembic.ini
 
 # -----------------------------------------------------------------------------
 # Logs
