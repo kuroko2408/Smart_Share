@@ -4,168 +4,287 @@
 >
 > *"Same place. Same time. Compatible routes. One smarter shared ride."*
 
----
-
-## 📖 About The Project
-
-Smart Share is an intelligent, location-based cab pooling system built to solve a common and overlooked problem: people leaving the same venue travel along overlapping routes in separate cabs, resulting in empty seats, higher individual fares, and unnecessary traffic.
-
-**The core gap** — Passengers lack a real-time, safe way to discover and coordinate with compatible co-travellers standing right beside them.
-
-**The audience** — Event-goers, airport and station travellers, and daily commuters looking to split costs and reduce peak-hour cab wait times.
-
-Unlike basic proximity-matching apps that simply group nearby passengers, Smart Share performs **journey-feasibility matching** — it enforces each passenger's maximum extra travel time, checks route compatibility, and shows transparent fare and savings estimates before anyone confirms.
+> [!IMPORTANT]
+> Smart Share is a **passenger matching and ride-coordination prototype**, not an operational cab-dispatch service. It does not operate a taxi fleet, guarantee vehicle availability, assign drivers, or process payments. These are explicitly out of scope for the current version.
 
 ---
 
-## ✨ Features & Unique Selling Points
+## Table of Contents
 
-| Feature | Description |
-| :--- | :--- |
-| **Departure-aware matching** | Matches passengers by departure time window and route compatibility |
-| **Detour-constrained ordering** | Enforces each passenger's maximum extra travel time per trip |
-| **Transparent fare estimates** | Shows fare share, estimated savings, and extra travel time upfront |
-| **Common-route compatibility** | Scores route overlap and travel-time suitability before proposing a pool |
-| **Event-independent** | Works across events, stations, airports, and daily commutes |
-
----
-
-## 🚦 How It Works
-
-Smart Share guides a passenger through five clear steps:
-
-1. **Create a trip** — Enter pickup location, destination, departure window, number of seats, and maximum acceptable extra travel time.
-2. **Find compatible travellers** — The system filters by pickup proximity, overlapping departure times, and route fit.
-3. **Build a feasible pool** — Vehicle capacity, pickup/drop-off order, and detour limits are all checked.
-4. **Compare the proposal** — See the shared route, fare split, estimated savings, and extra travel time before committing.
-5. **Confirm and coordinate** — Accept or decline the pool and receive updated group information.
+- [About the Project](#about-the-project)
+- [Problem Being Addressed](#problem-being-addressed)
+- [Core Idea](#core-idea)
+- [Technology Stack](#technology-stack)
+- [Architecture Overview](#architecture-overview)
+- [Repository Structure](#repository-structure)
+- [Documentation](#documentation)
+- [Current Development Phase](#current-development-phase)
+- [Setup Instructions](#setup-instructions)
+- [Branching and Contribution Conventions](#branching-and-contribution-conventions)
 
 ---
 
-## 🏗️ Technical Approach
+## About the Project
 
-### Architecture Overview
+Smart Share is an intelligent, location-based cab-pooling platform designed to connect passengers who are travelling from the same or nearby pickup locations to compatible destinations within overlapping departure-time windows.
+
+**Team:** Terminal 1
+**Hackathon:** NOVEX 2026 — Round 2
+**Category:** Smart Automation
+
+---
+
+## Problem Being Addressed
+
+People leaving crowded venues — concerts, college events, railway stations, airports, offices — frequently book separate cabs despite sharing similar routes. The result is:
+
+- Higher individual travel costs.
+- Underutilized vehicle seats.
+- Unnecessary traffic during peak hours.
+- No reliable way to discover compatible co-travellers in real time.
+
+Existing informal solutions (messaging groups, personal contacts) are slow, manual, and do not evaluate route feasibility.
+
+---
+
+## Core Idea
+
+Smart Share performs **journey-feasibility matching** rather than simple proximity grouping:
+
+1. A passenger creates a ride request with a pickup location, destination, departure window, seat count, and maximum acceptable extra travel time.
+2. The system filters candidate passengers by pickup proximity and time-window overlap.
+3. Compatible combinations are evaluated against route fit, detour limits, and vehicle capacity.
+4. A feasible pickup/drop-off sequence is proposed.
+5. Fare shares and estimated savings are calculated and presented transparently.
+6. Each passenger accepts or declines the proposal.
+
+The matching engine is **deterministic and explainable** — no unvalidated machine learning is used in the MVP.
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|:---|:---|
+| **Frontend** | React · Vite · TypeScript |
+| **Styling** | Tailwind CSS |
+| **UI Components** | shadcn/ui |
+| **Frontend Routing** | React Router |
+| **Server State** | TanStack Query |
+| **Form Validation** | Zod |
+| **Maps** | Leaflet + OpenStreetMap |
+| **Backend** | Python · FastAPI |
+| **Data Validation** | Pydantic |
+| **ORM** | SQLAlchemy 2 |
+| **Database Migrations** | Alembic |
+| **Database** | PostgreSQL + PostGIS (Supabase) |
+| **Authentication** | Supabase Auth |
+| **Road Routing** | openrouteservice (replaceable adapter) |
+| **Backend Testing** | Pytest |
+| **Frontend Testing** | Vitest |
+| **End-to-End Testing** | Playwright |
+| **Frontend Deployment** | Vercel (or equivalent) |
+| **Backend Deployment** | Render (or equivalent) |
+
+---
+
+## Architecture Overview
 
 ```
 Passenger / Smartphone (Browser)
         │
         ▼
   React + Vite + TypeScript (Frontend)
+  ├── Authentication (Supabase Auth)
+  ├── Map Interface (Leaflet + OpenStreetMap)
+  └── API Communication (TanStack Query)
         │
         ▼
   FastAPI Backend
+  ├── Auth Verification (Supabase JWT)
   ├── Ride Request Service
-  ├── Geospatial & Departure-Time Candidate Filtering
+  ├── Geospatial Candidate Filtering (PostGIS)
   ├── Route Compatibility & Matching Engine
   │       ├── Road Route / ETA Evaluation
-  │       ├── Detour & Stop-Order Optimization
+  │       ├── Detour & Stop-Order Feasibility
   │       └── Fare Estimation
   └── Routing Provider Adapter (openrouteservice)
         │
         ▼
-  PostgreSQL + PostGIS (Database)
+  PostgreSQL + PostGIS (Supabase)
 ```
 
-### Matching Methodology
-
-The matching engine is **explainable and deterministic**. It follows these steps in order:
-
-1. Filter candidates by pickup proximity and compatible departure windows.
-2. Score route compatibility and travel-time suitability.
-3. Enforce seat capacity and each passenger's maximum extra-travel-time limit.
-4. Evaluate feasible pickup and drop-off sequences.
-5. Estimate fare shares and savings.
-6. Present the proposal for passenger acceptance.
-
-> The MVP uses a heuristic approach for small groups. It is not claimed to be globally optimal and uses no unvalidated machine learning. Advanced optimisation can follow in later iterations.
-
-### Tech Stack
-
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend** | React · Vite · TypeScript · Tailwind CSS |
-| **Backend** | Python · FastAPI · hosted API · managed PostgreSQL |
-| **Data & Maps** | PostgreSQL + PostGIS (Supabase) · Leaflet + OpenStreetMap |
-| **Routing** | openrouteservice (behind a replaceable adapter) |
+The frontend and backend are **independently runnable** services. The backend exposes a versioned REST API (`/api/v1/`). The routing provider sits behind a replaceable adapter so it can be swapped without touching matching logic.
 
 ---
 
-## ✅ Feasibility & Viability
+## Repository Structure
 
-### Technical Feasibility
-
-- **React + FastAPI** — a practical and proven web/API stack.
-- **PostGIS** — enables efficient geographic candidate search.
-- **Routing API** — provides road distances and ETAs.
-- **Modular backend** — each service can be built and tested independently.
-- **Event-based prototype** — validates the core algorithm before wider rollout.
-
-### Key Challenges & Mitigations
-
-| Challenge | Mitigation |
-| :--- | :--- |
-| Too few matching passengers | Start with event-based pools; demo on a controlled synthetic dataset |
-| Poor route compatibility | Enforce maximum detour and extra-travel-time limits |
-| Routing API limits or failures | Cache repeated requests where appropriate; keep a demo fallback |
-| Cancellations and overbooking | Database transactions, capacity checks, and explicit group states |
-| Safety and location privacy | Minimise stored data, restrict access, share only what is needed |
-
-> **Viability boundary:** The initial deliverable is a functional pooling and coordination prototype. Real cab dispatch, guaranteed vehicle availability, payments, and driver integrations require separate integration work and are not assumed in this scope.
-
----
-
-## 🌍 Impact & Benefits
-
-| Area | Expected Benefit |
-| :--- | :--- |
-| **Economic** | Lower estimated per-passenger travel cost |
-| **Utilisation** | Better use of available vehicle seats |
-| **Social** | Easier coordination along compatible routes |
-| **Environment** | Potentially fewer separate trips and vehicle-kilometres (to be measured) |
-| **Clarity** | Visible trade-off between savings and extra travel time |
-
-### Validation Metrics
-
-The following metrics will be tracked during testing and piloting:
-
-- Feasible match rate
-- Estimated savings per matched passenger
-- Extra passenger travel time
-- Average group occupancy
-- Successful group confirmations
-- Avoided vehicle-km (if assumptions hold)
-
-> **Note:** Pilot targets are proposals to be validated — not achieved results. Congestion and emission benefits are potential impacts to measure through testing, not proven outcomes.
-
----
-
-## 🔬 Research & References
-
-The design choices in Smart Share are grounded in published research and established documentation:
-
-- **Agatz, N., Erera, A., Savelsbergh, M., & Wang, X. (2012).** *Optimization for dynamic ridesharing: A review.* European Journal of Operational Research, 223(2), 295–303. DOI: [doi.org/10.1016/j.ejor.2012.05.028](https://doi.org/10.1016/j.ejor.2012.05.028)
-  *Surveys matching of riders with flexible times and routes — the core problem Smart Share's constraint-based matching addresses.*
-
-- **React** — Frontend UI · [react.dev/learn](https://react.dev/learn)
-- **FastAPI** — Python backend API · [fastapi.tiangolo.com](https://fastapi.tiangolo.com)
-- **Supabase Docs: PostGIS extension** — Geospatial candidate search · [supabase.com/docs/guides/database/extensions/postgis](https://supabase.com/docs/guides/database/extensions/postgis)
-- **Leaflet** — Interactive map on OpenStreetMap tiles · [leafletjs.com](https://leafletjs.com)
-- **openrouteservice API** — Road routes and ETA (via adapter) · [openrouteservice.org/dev/#/api-docs](https://openrouteservice.org/dev/#/api-docs)
-
-> Sources support the planned design choices and are not performance claims for Smart Share.
+```
+smart-share/
+├── frontend/                   # React + Vite + TypeScript application
+│   └── src/
+│       ├── app/                # Root app setup (router, providers, global layout)
+│       ├── components/
+│       │   ├── ui/             # Primitive UI components (shadcn/ui wrappers)
+│       │   └── shared/         # Reusable composed components
+│       ├── features/           # Feature modules (ride request, match, group)
+│       ├── hooks/              # Custom React hooks
+│       ├── services/           # API client and external service wrappers
+│       ├── lib/                # Utility functions and helpers
+│       ├── types/              # TypeScript type definitions and interfaces
+│       └── assets/             # Static assets (images, icons, fonts)
+│
+├── backend/                    # Python + FastAPI application
+│   └── app/
+│       ├── api/v1/endpoints/   # HTTP route handlers
+│       ├── core/               # Configuration, settings, and application setup
+│       ├── models/             # SQLAlchemy ORM models
+│       ├── schemas/            # Pydantic request/response schemas
+│       ├── services/           # Business logic layer
+│       ├── repositories/       # Database access layer
+│       ├── matching/           # Passenger matching engine
+│       ├── routing/            # Routing provider adapter
+│       ├── fares/              # Fare estimation module
+│       └── tests/              # Pytest test suite
+│
+├── database/
+│   ├── migrations/             # Alembic migration scripts
+│   └── diagrams/               # ER diagrams and schema diagrams
+│
+├── docs/
+│   ├── 01-project-charter.md
+│   ├── 02-srs-prd.md
+│   ├── 03-system-architecture-tdd.md
+│   ├── 04-database-api-contracts.md
+│   ├── 05-roadmap.md
+│   ├── 06-developer-guide.md
+│   ├── ADR/                    # Architecture Decision Records
+│   └── diagrams/               # Architecture and flow diagrams
+│
+├── .gitignore
+└── README.md
+```
 
 ---
 
-## 👥 Team
+## Documentation
 
-**Team Name:** Terminal 1
-
-**Hackathon:** NOVEX 2026 — Round 2
-
-**Problem Statement Category:** Smart Automation
+| Document | Description |
+|:---|:---|
+| [01 — Project Charter](docs/01-project-charter.md) | Project goals, scope, team structure, success criteria |
+| [02 — SRS / PRD](docs/02-srs-prd.md) | Functional and non-functional requirements |
+| [03 — System Architecture & TDD](docs/03-system-architecture-tdd.md) | Technical architecture, component design, matching engine spec |
+| [04 — Database & API Contracts](docs/04-database-api-contracts.md) | Database schema, API endpoint definitions, request/response shapes |
+| [05 — Roadmap](docs/05-roadmap.md) | Development phases, milestones, deliverables, completion criteria |
+| [06 — Developer Guide](docs/06-developer-guide.md) | Local setup, workflow, testing, branch conventions |
+| [ADR/](docs/ADR/) | Architecture Decision Records for significant choices |
 
 ---
 
-## 📝 License
+## Current Development Phase
 
-This project was created for the NOVEX Hackathon 2026. Please refer to the competition guidelines for usage and distribution terms.
+**Phase 1 — Repository and Development Foundation** *(in progress)*
+
+| Phase | Description | Status |
+|:---|:---|:---|
+| Phase 0 | Planning and Documentation | ✅ Complete |
+| Phase 1 | Repository and Development Foundation | 🔄 In Progress |
+| Phase 2 | Backend Core and Database | 🔲 Pending |
+| Phase 3 | Matching Engine | 🔲 Pending |
+| Phase 4 | Frontend Application | 🔲 Pending |
+| Phase 5 | Integration, Testing, and Demo | 🔲 Pending |
+
+---
+
+## Setup Instructions
+
+> [!NOTE]
+> This section will be completed as the project is initialized. The instructions below are placeholders and will be updated with verified commands.
+
+### Prerequisites
+
+- Git
+- Node.js (recent stable LTS)
+- npm
+- Python 3.11+ (verify against project dependencies)
+- PostgreSQL with PostGIS
+- A Supabase project (for hosted database and authentication)
+- An openrouteservice API key
+
+### Clone the Repository
+
+```bash
+git clone <REPOSITORY_URL>
+cd smart-share
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+cp .env.example .env.local
+# Fill in .env.local with your values
+npm install
+npm run dev
+```
+
+### Backend Setup
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+cp .env.example .env
+# Fill in .env with your values
+pip install -r requirements.txt
+# Run database migrations (Alembic — instructions TBD)
+uvicorn app.main:app --reload
+```
+
+> [!WARNING]
+> `requirements.txt` and `package.json` have not yet been generated. These setup commands will be verified and updated when the frontend and backend are initialized.
+
+---
+
+## Branching and Contribution Conventions
+
+### Branch Strategy
+
+| Branch | Purpose |
+|:---|:---|
+| `main` | Stable, reviewed code only. Direct commits are not permitted. |
+| `dev` | Integration branch for completed features. |
+| `feature/<short-name>` | Individual feature development (e.g., `feature/ride-request-api`) |
+| `fix/<short-name>` | Bug fixes (e.g., `fix/matching-detour-overflow`) |
+| `chore/<short-name>` | Tooling, dependencies, documentation updates |
+
+### Commit Message Format
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <short description>
+
+feat(matching): add detour feasibility check
+fix(api): correct ride request 422 response schema
+chore(deps): update fastapi to 0.115
+docs(adr): record routing adapter decision
+```
+
+### Pull Requests
+
+- All changes must go through a pull request into `dev` or `main`.
+- Both developers should review changes that touch shared interfaces (API contracts, database schema, matching logic).
+- API contract changes must be reflected in `docs/04-database-api-contracts.md`.
+- Database schema changes must be implemented through Alembic migrations — no manual schema edits.
+
+### Secrets Policy
+
+> [!CAUTION]
+> Never commit credentials, API keys, database passwords, JWT secrets, or generated tokens. Use `.env` files locally (which are gitignored) and environment variable configuration for deployment.
+> Use `.env.example` files for documenting required variables.
+
+---
+
+*Smart Share — NOVEX 2026 Hackathon Project | Team: Terminal 1*

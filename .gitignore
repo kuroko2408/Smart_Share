@@ -1,0 +1,147 @@
+# =============================================================================
+# Smart Share — .gitignore
+# Two-developer hackathon monorepo: React/Vite/TypeScript + FastAPI + PostgreSQL
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Environment & Secrets — NEVER COMMIT CREDENTIALS OR TOKENS
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# -----------------------------------------------------------------------------
+# Frontend — Node.js / npm / Vite / React
+# -----------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
+frontend/coverage/
+frontend/.turbo/
+
+# Vite temporary files
+*.local
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Playwright test artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
+
+# -----------------------------------------------------------------------------
+# Backend — Python / FastAPI
+# -----------------------------------------------------------------------------
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Pytest cache & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+
+# MyPy / type checker
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
+
+# Local database dumps and exports
+*.sql.dump
+*.pgdump
+*.backup
+database/local_dumps/
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic — allow migrations folder contents, ignore local override config
+# (alembic.ini contains connection strings — use alembic.ini.example)
+alembic.ini
+!alembic.ini.example
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+*.log
+logs/
+backend/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -----------------------------------------------------------------------------
+# IDE & Editor
+# -----------------------------------------------------------------------------
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+
+# Sublime Text
+*.sublime-workspace
+
+# -----------------------------------------------------------------------------
+# OS-generated
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V500
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+*.tmp
+*.temp
+.cache/
