@@ -1,6 +1,7 @@
 import asyncio
 from logging.config import fileConfig
 
+import geoalchemy2  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -18,6 +19,28 @@ if config.config_file_name is not None:
 
 # Model metadata for autogenerate support
 target_metadata = Base.metadata
+
+# PostGIS system tables to exclude from autogenerate comparison
+POSTGIS_SYSTEM_TABLES = {
+    "spatial_ref_sys",
+    "geography_columns",
+    "geometry_columns",
+    "raster_columns",
+    "raster_overviews",
+}
+
+
+def include_object(
+    object: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object | None,
+) -> bool:
+    """Filter out PostGIS system tables from Alembic migrations."""
+    if type_ == "table" and name in POSTGIS_SYSTEM_TABLES:
+        return False
+    return True
 
 
 def get_database_url() -> str:
@@ -41,6 +64,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -53,6 +77,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():

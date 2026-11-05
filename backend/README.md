@@ -65,6 +65,7 @@ backend/
 - **Uvicorn**: Lightning-fast ASGI web server
 - **Pydantic & Pydantic Settings**: Centralized type-safe schema and environment management
 - **SQLAlchemy 2**: Modern async ORM foundation
+- **GeoAlchemy2 & Shapely**: PostGIS spatial types (`Geography`) and geometric operations
 - **Alembic**: Database migrations and schema versioning
 - **asyncpg & psycopg**: High-performance PostgreSQL drivers
 - **Pytest & Pytest-Asyncio**: Asynchronous and synchronous test suite
@@ -148,7 +149,21 @@ Exposed at `GET /health` (and versioned at `GET /api/v1/health`):
 
 ---
 
-## 6. Database Migrations (Alembic)
+## 6. Database & Migrations (PostgreSQL + PostGIS)
+
+Smart Share uses PostgreSQL 16 with PostGIS 3.4. See [`../database/README.md`](../database/README.md) for complete local and Supabase setup instructions.
+
+### Starting Local Database
+
+```bash
+# From repository root
+docker compose up -d
+
+# Verify PostGIS functionality
+python ../database/verify_postgis.py
+```
+
+### Applying Migrations (Alembic)
 
 When `DATABASE_URL` is configured in your environment or `.env`:
 

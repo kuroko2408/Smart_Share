@@ -136,6 +136,7 @@ smart-share/
 │       └── assets/             # Static assets (images, icons, fonts)
 │
 ├── backend/                    # Python + FastAPI application
+│   ├── alembic/                # Alembic migration configuration and versions
 │   └── app/
 │       ├── api/v1/endpoints/   # HTTP route handlers
 │       ├── core/               # Configuration, settings, and application setup
@@ -148,9 +149,13 @@ smart-share/
 │       ├── fares/              # Fare estimation module
 │       └── tests/              # Pytest test suite
 │
-├── database/
-│   ├── migrations/             # Alembic migration scripts
+├── database/                   # Database scripts and PostGIS tools
+│   ├── init_db.sql             # DB initialization & extension activation
+│   ├── verify_postgis.py       # PostGIS spatial verification script
+│   ├── reset_dev_db.sh         # Isolated dev DB reset script
 │   └── diagrams/               # ER diagrams and schema diagrams
+│
+├── docker-compose.yml          # PostgreSQL 16 + PostGIS 3.4 local container (port 5433)
 │
 ├── docs/
 │   ├── 01-project-charter.md
@@ -219,13 +224,23 @@ git clone <REPOSITORY_URL>
 cd smart-share
 ```
 
+### Database Setup (Local Docker)
+
+```bash
+# Start PostgreSQL 16 + PostGIS 3.4 container (port 5433)
+docker compose up -d
+
+# Verify PostGIS functionality
+backend/.venv/bin/python database/verify_postgis.py
+```
+
 ### Frontend Setup
 
 ```bash
 cd frontend
 cp .env.example .env.local
-# Fill in .env.local with your values
-npm install
+# Fill in .env.local with your values (defaults work out-of-the-box)
+npm ci
 npm run dev
 ```
 
@@ -233,17 +248,13 @@ npm run dev
 
 ```bash
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 cp .env.example .env
-# Fill in .env with your values
-pip install -r requirements.txt
-# Run database migrations (Alembic — instructions TBD)
-uvicorn app.main:app --reload
+# Set DATABASE_URL in .env if using local or Supabase database
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-> [!WARNING]
-> `requirements.txt` and `package.json` have not yet been generated. These setup commands will be verified and updated when the frontend and backend are initialized.
 
 ---
 

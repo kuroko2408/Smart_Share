@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: smartshare-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_share}
+    ports:
+      # Port 5433 is used by default to prevent conflict with any existing local PostgreSQL service on 5432
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - smartshare_pgdata:/var/lib/postgresql/data
+      - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smart_share"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  smartshare_pgdata:
+    name: smartshare_pgdata

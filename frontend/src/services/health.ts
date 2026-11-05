@@ -1,6 +1,9 @@
 import { env } from '@/lib/env';
 
-export type HealthResponse = { status: string };
+export type HealthResponse = {
+  status: string;
+  service?: string;
+};
 
 export async function checkBackendHealth(): Promise<HealthResponse> {
   // Health endpoint is at the root of the backend, not under /api/v1
