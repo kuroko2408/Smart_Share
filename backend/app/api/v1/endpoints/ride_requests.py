@@ -141,3 +141,25 @@ async def cancel_ride_request(
         data=dto,
         message="Ride request cancelled successfully",
     )
+
+
+@router.delete(
+    "/{request_id}",
+    response_model=DataResponse[RideRequestResponse],
+)
+async def delete_ride_request(
+    request_id: uuid.UUID,
+    current_user: AuthUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DataResponse[RideRequestResponse]:
+    """Cancel an active or matched ride request (DELETE method alias)."""
+    cancelled = await ride_request_service.cancel_ride_request(
+        session=db,
+        user=current_user,
+        request_id=request_id,
+    )
+    dto = ride_request_service.to_response_dto(cancelled)
+    return DataResponse(
+        data=dto,
+        message="Ride request cancelled successfully",
+    )

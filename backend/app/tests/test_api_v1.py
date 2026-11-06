@@ -986,3 +986,28 @@ async def test_cancel_non_existent_request(
     res = await client_user_a.post(f"/api/v1/ride-requests/{random_id}/cancel")
     assert res.status_code == 404
     assert res.json()["error_code"] == "RESOURCE_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_delete_ride_request_alias(
+    client_user_a: AsyncClient,
+) -> None:
+    """Verify that DELETE /ride-requests/{id} cancels an ACTIVE request."""
+    now = datetime.now(UTC)
+    payload = {
+        "pickup": {"latitude": 19.0760, "longitude": 72.8777},
+        "destination": {"latitude": 18.9220, "longitude": 72.8258},
+        "departure_earliest": (now + timedelta(minutes=25)).isoformat(),
+        "departure_latest": (now + timedelta(minutes=55)).isoformat(),
+        "seats_requested": 1,
+        "max_extra_minutes": 15,
+    }
+    created = await client_user_a.post("/api/v1/ride-requests", json=payload)
+    req_id = created.json()["data"]["id"]
+
+    delete_res = await client_user_a.delete(f"/api/v1/ride-requests/{req_id}")
+    assert delete_res.status_code == 200
+    assert delete_res.json()["data"]["status"] == "CANCELLED"
+
+    get_res = await client_user_a.get(f"/api/v1/ride-requests/{req_id}")
+    assert get_res.json()["data"]["status"] == "CANCELLED"

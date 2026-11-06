@@ -1,9 +1,10 @@
 /**
- * Main Home & Minimal Integration Screen for Smart Share Phase 2.
- * Includes:
+ * Main Home & Dashboard Screen for Smart Share.
+ * Phase 2 & Phase 3 Integration:
  * - Live backend connection status monitor
  * - Real Supabase / Bearer token authentication flow
  * - Authenticated user profile retrieval & display
+ * - Ride Request Management (Listing, Creation Form, Details, Editing, Cancellation)
  * - Loading, success, and error states
  * - Expired and unauthorized session handling
  */
@@ -17,12 +18,16 @@ import {
   Lock,
   LogOut,
   Mail,
+  PlusCircle,
   ShieldCheck,
+  User as UserIcon,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ProfileCard } from '@/features/profile/ProfileCard';
+import { RideRequestForm } from '@/features/ride-requests/RideRequestForm';
+import { RideRequestList } from '@/features/ride-requests/RideRequestList';
 import { env } from '@/lib/env';
 import { checkBackendHealth } from '@/services/health';
 
@@ -39,6 +44,7 @@ export function HomePage() {
   } = useAuth();
 
   const [authMode, setAuthMode] = useState<'token' | 'supabase'>('token');
+  const [activeTab, setActiveTab] = useState<'rides' | 'new' | 'profile'>('rides');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [tokenInput, setTokenInput] = useState('');
@@ -82,7 +88,11 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-lg w-full text-center space-y-6">
+      <div
+        className={`bg-white rounded-2xl shadow-lg p-6 sm:p-8 w-full text-center space-y-6 transition-all duration-200 ${
+          isAuthenticated ? 'max-w-2xl' : 'max-w-lg'
+        }`}
+      >
         {/* Header */}
         <div className="flex items-center justify-center gap-3">
           <Car className="w-10 h-10 text-indigo-600" />
@@ -93,30 +103,30 @@ export function HomePage() {
           Intelligent, Location-Based Cab Pooling
         </p>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-amber-800 text-sm font-medium">
-          🚧 Under Development — NOVEX 2026 Hackathon
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-amber-800 text-xs font-medium">
+          🚧 NOVEX 2026 Hackathon Prototype — Terminal 1
         </div>
 
         {/* Backend Status Section */}
-        <div className="border-t pt-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-3 font-semibold">
+        <div className="border-t pt-3">
+          <p className="text-2xs text-gray-400 uppercase tracking-wide mb-1.5 font-semibold">
             Backend Status
           </p>
           {isHealthLoading && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
+            <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Checking connection…
             </div>
           )}
           {isHealthError && (
-            <div className="flex items-center justify-center gap-2 text-red-500 text-sm font-medium">
-              <WifiOff className="w-4 h-4" />
+            <div className="flex items-center justify-center gap-2 text-red-500 text-xs font-medium">
+              <WifiOff className="w-3.5 h-3.5" />
               Backend unreachable
             </div>
           )}
           {healthData && (
-            <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
-              <Wifi className="w-4 h-4" />
+            <div className="flex items-center justify-center gap-2 text-green-600 text-xs font-medium">
+              <Wifi className="w-3.5 h-3.5" />
               Backend connected — {healthData.status}
             </div>
           )}
@@ -134,23 +144,69 @@ export function HomePage() {
 
         {/* Authenticated State vs Login State */}
         {isAuthenticated && session ? (
-          <div className="border-t pt-5 space-y-4">
-            <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+          <div className="border-t pt-4 space-y-4">
+            {/* User Session Bar */}
+            <div className="flex items-center justify-between text-xs text-gray-500 px-1 pb-1">
               <span className="flex items-center gap-1 font-semibold text-indigo-700">
-                <ShieldCheck className="w-4 h-4" /> Authenticated Session
+                <ShieldCheck className="w-4 h-4" /> Authenticated
               </span>
               <button
                 type="button"
                 onClick={logout}
-                className="inline-flex items-center gap-1 text-gray-500 hover:text-red-600 transition-colors"
+                className="inline-flex items-center gap-1 text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
                 title="Sign out of current session"
               >
                 <LogOut className="w-3.5 h-3.5" /> Sign Out
               </button>
             </div>
 
-            {/* Profile Card displaying real profile from GET /users/me */}
-            <ProfileCard />
+            {/* Dashboard Tabs */}
+            <div className="flex border-b border-gray-200 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('rides')}
+                className={`flex-1 py-2.5 px-3 border-b-2 flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'rides'
+                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Car className="w-4 h-4" /> My Rides
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('new')}
+                className={`flex-1 py-2.5 px-3 border-b-2 flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'new'
+                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <PlusCircle className="w-4 h-4" /> New Request
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('profile')}
+                className={`flex-1 py-2.5 px-3 border-b-2 flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'profile'
+                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <UserIcon className="w-4 h-4" /> Profile
+              </button>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="pt-2">
+              {activeTab === 'rides' && (
+                <RideRequestList onCreateNewClick={() => setActiveTab('new')} />
+              )}
+              {activeTab === 'new' && (
+                <RideRequestForm onSuccess={() => setActiveTab('rides')} />
+              )}
+              {activeTab === 'profile' && <ProfileCard />}
+            </div>
           </div>
         ) : (
           <div className="border-t pt-5 space-y-4 text-left">
@@ -225,7 +281,7 @@ export function HomePage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !tokenInput.trim()}
-                  className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Connect Session
@@ -278,7 +334,7 @@ export function HomePage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !emailInput || !passwordInput}
-                  className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Sign In with Supabase
@@ -289,7 +345,7 @@ export function HomePage() {
         )}
 
         {/* Disclaimer footer */}
-        <p className="text-xs text-gray-400 border-t pt-3">
+        <p className="text-2xs text-gray-400 border-t pt-3">
           This prototype coordinates passenger matching and ride pooling. It is not an operational
           cab-dispatch service.
         </p>

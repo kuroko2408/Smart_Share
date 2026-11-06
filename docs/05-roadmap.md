@@ -448,13 +448,13 @@ Suggested tracking table:
 
 | Milestone | Owner | Status | Completion Evidence |
 |---|---|---|---|
-| Documentation approval | Both | Not started | Reviewed documents |
-| Repository setup | Both | Not started | Running local environment |
-| Database foundation | Backend | Not started | Successful migrations |
-| Ride request API | Backend | Not started | API tests |
+| Documentation approval | Both | COMPLETED | Reviewed and approved Phase 0 documents |
+| Repository setup | Both | COMPLETED | Running local development environment & CI config |
+| Database foundation & Auth | Backend | COMPLETED | Hosted Supabase PostgreSQL 17.11, PostGIS, Alembic migration 5b69062ab3ef, ES256 JWKS auth |
+| Ride request API & Management | Both | COMPLETED | End-to-end ride request lifecycle, REST endpoints, PostGIS 4326 persistence, React UI |
 | Matching engine | Backend | Not started | Matching test report |
-| Frontend MVP | Frontend | Not started | Working screens |
-| Integration | Both | Not started | End-to-end workflow |
+| Frontend MVP | Frontend | In progress | Core screens (Auth, Profile, Ride Requests complete; Matching next) |
+| Integration | Both | In progress | Supabase Auth, Profile, and Ride Requests integrated live |
 | Deployment | Both | Not started | Live demo |
 
 ## 8. Risk Management

@@ -102,6 +102,10 @@ describe('HomePage', () => {
     fireEvent.change(tokenInput, { target: { value: fakeToken } });
     fireEvent.click(connectButton);
 
+    // Switch to Profile tab
+    const profileTab = await screen.findByRole('button', { name: /Profile/i });
+    fireEvent.click(profileTab);
+
     // Profile card should appear
     await waitFor(() => {
       expect(screen.getByText('Verified Commuter')).toBeInTheDocument();
