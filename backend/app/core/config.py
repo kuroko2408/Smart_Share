@@ -25,11 +25,15 @@ class Settings(BaseSettings):
     # Format: postgresql+asyncpg://user:password@host:port/dbname
     DATABASE_URL: str = ""
 
-    # Supabase authentication placeholders
-    # NOTE: Do not assume Supabase uses a symmetric JWT secret.
-    # Token verification must be selected based on project signing configuration (e.g. JWKS).
+    # Supabase authentication configuration
+    # Token verification supports JWKS (asymmetric: RS256, ES256) and optional symmetric secrets (HS256).
     SUPABASE_URL: str = ""
     SUPABASE_JWKS_URL: str = ""
+    SUPABASE_JWT_ISSUER: str = ""
+    SUPABASE_JWT_AUDIENCE: str = "authenticated"
+    SUPABASE_JWT_ALGORITHMS: list[str] = ["RS256", "ES256"]
+    SUPABASE_JWT_SECRET: str = ""
+    JWKS_CACHE_LIFESPAN: int = 300
 
     # Routing provider placeholders (e.g. OpenRouteService, OSRM, Google Maps)
     ROUTING_PROVIDER: str = ""
@@ -62,6 +66,28 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, tuple)):
             return [str(item).strip() for item in v if str(item).strip()]
         return []
+
+    @field_validator("SUPABASE_JWT_ALGORITHMS", mode="before")
+    @classmethod
+    def assemble_jwt_algorithms(cls, v: Any) -> list[str]:
+        """Parse JWT algorithms from list, comma-separated string, or JSON array string."""
+        if isinstance(v, str):
+            trimmed = v.strip()
+            if not trimmed:
+                return ["RS256", "ES256"]
+            if trimmed.startswith("[") and trimmed.endswith("]"):
+                try:
+                    parsed = json.loads(trimmed)
+                    if isinstance(parsed, list):
+                        return [
+                            str(item).strip() for item in parsed if str(item).strip()
+                        ]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return [alg.strip() for alg in trimmed.split(",") if alg.strip()]
+        elif isinstance(v, (list, tuple)):
+            return [str(item).strip() for item in v if str(item).strip()]
+        return ["RS256", "ES256"]
 
     @field_validator("LOG_LEVEL")
     @classmethod
@@ -96,6 +122,26 @@ class Settings(BaseSettings):
         if url.startswith("postgresql+asyncpg://"):
             return url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
         return url
+
+    @property
+    def effective_jwks_url(self) -> str | None:
+        """Return explicit JWKS URL or construct from SUPABASE_URL if configured."""
+        if self.SUPABASE_JWKS_URL and self.SUPABASE_JWKS_URL.strip():
+            return self.SUPABASE_JWKS_URL.strip()
+        if self.SUPABASE_URL and self.SUPABASE_URL.strip():
+            return (
+                f"{self.SUPABASE_URL.strip().rstrip('/')}/auth/v1/.well-known/jwks.json"
+            )
+        return None
+
+    @property
+    def effective_jwt_issuer(self) -> str | None:
+        """Return explicit JWT issuer or construct from SUPABASE_URL if configured."""
+        if self.SUPABASE_JWT_ISSUER and self.SUPABASE_JWT_ISSUER.strip():
+            return self.SUPABASE_JWT_ISSUER.strip()
+        if self.SUPABASE_URL and self.SUPABASE_URL.strip():
+            return f"{self.SUPABASE_URL.strip().rstrip('/')}/auth/v1"
+        return None
 
 
 @lru_cache

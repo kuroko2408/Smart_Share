@@ -1,7 +1,7 @@
 /**
  * Reusable API client for the Smart Share backend.
  * Uses VITE_API_BASE_URL as the base. Handles JSON, HTTP errors consistently.
- * Authentication token attachment will be added in Phase 2.
+ * Attaches Supabase Bearer token when authenticated and notifies on 401 Unauthorized.
  */
 import { env } from '@/lib/env';
 
@@ -17,6 +17,34 @@ export class ApiError extends Error {
   }
 }
 
+let activeAuthToken: string | null = null;
+const unauthorizedListeners = new Set<() => void>();
+
+export function setAuthToken(token: string | null): void {
+  activeAuthToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return activeAuthToken;
+}
+
+export function onUnauthorized(callback: () => void): () => void {
+  unauthorizedListeners.add(callback);
+  return () => {
+    unauthorizedListeners.delete(callback);
+  };
+}
+
+function notifyUnauthorized(): void {
+  unauthorizedListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error('[apiClient] Error in unauthorized listener', e);
+    }
+  });
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -27,10 +55,15 @@ type RequestOptions = {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, signal } = options;
 
-  // TODO (Phase 2): attach Authorization header from Supabase session
+  const authHeaders: Record<string, string> = {};
+  if (activeAuthToken) {
+    authHeaders['Authorization'] = `Bearer ${activeAuthToken}`;
+  }
+
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    ...authHeaders,
     ...headers,
   };
 
@@ -46,11 +79,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!response.ok) {
     let message = `HTTP ${response.status} ${response.statusText}`;
     try {
-      const errorBody = (await response.json()) as { detail?: string };
-      if (errorBody?.detail) message = errorBody.detail;
+      const errorBody = (await response.json()) as { detail?: string; error?: { message?: string } };
+      if (errorBody?.detail) {
+        message = errorBody.detail;
+      } else if (errorBody?.error?.message) {
+        message = errorBody.error.message;
+      }
     } catch {
       // ignore parse errors
     }
+
+    if (response.status === 401) {
+      notifyUnauthorized();
+    }
+
     throw new ApiError(response.status, response.statusText, message);
   }
 

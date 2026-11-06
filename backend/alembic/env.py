@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.core.config import settings
-from app.models.base import Base
+
+# Import Base from app.models to ensure all model definitions are registered on metadata
+from app.models import Base
 
 # Alembic Config object
 config = context.config
@@ -20,7 +22,7 @@ if config.config_file_name is not None:
 # Model metadata for autogenerate support
 target_metadata = Base.metadata
 
-# PostGIS system tables to exclude from autogenerate comparison
+# PostGIS system tables and managed schemas to exclude from autogenerate comparison
 POSTGIS_SYSTEM_TABLES = {
     "spatial_ref_sys",
     "geography_columns",
@@ -37,17 +39,20 @@ def include_object(
     reflected: bool,
     compare_to: object | None,
 ) -> bool:
-    """Filter out PostGIS system tables from Alembic migrations."""
-    if type_ == "table" and name in POSTGIS_SYSTEM_TABLES:
-        return False
+    """Filter out PostGIS system objects and managed external schemas from migrations."""
+    if type_ == "table":
+        # Ignore PostGIS internal system tables
+        if name in POSTGIS_SYSTEM_TABLES:
+            return False
+        # Ignore Supabase-managed auth schema and users table
+        schema = getattr(object, "schema", None)
+        if schema == "auth" or (name == "users" and schema == "auth"):
+            return False
     return True
 
 
-def get_database_url() -> str:
-    """Retrieve database URL from application settings.
-
-    Raises RuntimeError if DATABASE_URL is not set.
-    """
+def get_async_database_url() -> str:
+    """Retrieve async database URL from application settings."""
     url = settings.async_database_url
     if not url:
         raise RuntimeError(
@@ -56,9 +61,18 @@ def get_database_url() -> str:
     return url
 
 
+def get_sync_database_url() -> str:
+    """Retrieve sync database URL for offline migration generation."""
+    url = settings.sync_database_url
+    if not url:
+        # Fallback to local default for offline SQL generation
+        return "postgresql+psycopg://postgres:postgres@localhost:5433/smart_share"
+    return url
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode without an active DB connection."""
-    url = get_database_url()
+    url = get_sync_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -87,7 +101,7 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with an async connection."""
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = get_database_url()
+    configuration["sqlalchemy.url"] = get_async_database_url()
 
     connectable = async_engine_from_config(
         configuration,

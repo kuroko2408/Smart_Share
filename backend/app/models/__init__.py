@@ -1,8 +1,10 @@
 """SQLAlchemy models package.
 
-Application entities will be defined here in subsequent phases.
+Exports declarative Base and all registered application models.
 """
 
 from app.models.base import Base
+from app.models.profile import Profile
+from app.models.ride_request import RideRequest, RideRequestStatus
 
-__all__ = ["Base"]
+__all__ = ["Base", "Profile", "RideRequest", "RideRequestStatus"]

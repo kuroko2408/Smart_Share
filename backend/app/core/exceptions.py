@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -18,12 +19,33 @@ class AppException(Exception):
         status_code: int = status.HTTP_400_BAD_REQUEST,
         error_code: str | None = None,
         extra: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ):
         super().__init__(detail)
         self.detail = detail
         self.status_code = status_code
         self.error_code = error_code or "APP_ERROR"
         self.extra = extra or {}
+        self.headers = headers
+
+
+class AuthenticationError(AppException):
+    """Raised when authentication credentials are missing, invalid, or expired."""
+
+    def __init__(
+        self,
+        detail: str = "Could not validate credentials",
+        error_code: str = "UNAUTHORIZED",
+        headers: dict[str, str] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            detail=detail,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=error_code,
+            extra=extra,
+            headers=headers or {"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def app_exception_handler(_: Request, exc: AppException) -> JSONResponse:
@@ -35,7 +57,11 @@ async def app_exception_handler(_: Request, exc: AppException) -> JSONResponse:
     }
     if exc.extra:
         content["extra"] = exc.extra
-    return JSONResponse(status_code=exc.status_code, content=content)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content,
+        headers=exc.headers,
+    )
 
 
 async def http_exception_handler(
@@ -54,10 +80,10 @@ async def validation_exception_handler(
     """Handle request payload / parameter validation errors."""
     logger.info("Request validation failed: %s", exc.errors())
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "detail": "Validation error",
-            "errors": exc.errors(),
+            "errors": jsonable_encoder(exc.errors()),
         },
     )
 
