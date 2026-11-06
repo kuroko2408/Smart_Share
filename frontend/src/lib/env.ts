@@ -16,7 +16,8 @@ function getEnv(key: string, fallback?: string): string {
 export const env = {
   apiBaseUrl: getEnv('VITE_API_BASE_URL', 'http://localhost:8000/api/v1'),
   supabaseUrl: getEnv('VITE_SUPABASE_URL'),
-  supabaseAnonKey: getEnv('VITE_SUPABASE_ANON_KEY'),
+  supabaseAnonKey:
+    getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('VITE_SUPABASE_PUBLISHABLE_KEY'),
   mapTileUrl: getEnv(
     'VITE_MAP_TILE_URL',
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'

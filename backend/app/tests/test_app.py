@@ -82,8 +82,11 @@ def test_app_exception_handler() -> None:
 
 
 @pytest.mark.asyncio
-async def test_database_dependency_unconfigured() -> None:
+async def test_database_dependency_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Verify that get_db raises a clear RuntimeError when DATABASE_URL is unconfigured."""
+    monkeypatch.setattr("app.core.database.async_session_factory", None)
     db_gen = get_db()
     with pytest.raises(RuntimeError) as exc_info:
         await anext(db_gen)

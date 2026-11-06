@@ -45,6 +45,7 @@ class SupabaseJWTVerifier:
         jwt_secret: str | None = None,
         cache_lifespan: int = 300,
         jwk_client: PyJWKClient | None = None,
+        leeway: int = 10,
     ) -> None:
         self.jwks_url = jwks_url
         self.issuer = issuer
@@ -53,6 +54,7 @@ class SupabaseJWTVerifier:
         self.jwt_secret = jwt_secret
         self.cache_lifespan = cache_lifespan
         self._jwk_client = jwk_client
+        self.leeway = leeway
 
     @property
     def jwk_client(self) -> PyJWKClient:
@@ -166,6 +168,7 @@ class SupabaseJWTVerifier:
                 audience=self.audience if self.audience else None,
                 issuer=self.issuer if self.issuer else None,
                 options=decode_options,
+                leeway=self.leeway,
             )
         except ExpiredSignatureError as exc:
             raise AuthenticationError(
