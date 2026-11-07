@@ -49,18 +49,33 @@ def to_geography_point(latitude: float, longitude: float) -> WKTElement:
 
 
 def parse_point_coordinates(point_geom: Any) -> tuple[float, float]:
-    """Extract (latitude, longitude) from GeoAlchemy2 WKBElement, WKTElement, or WKT string.
+    """Extract (latitude, longitude) from GeoAlchemy2 WKBElement, WKTElement, or WKT/EWKB string/bytes.
 
     Returns:
         tuple[float, float]: (latitude, longitude)
     """
+    if isinstance(point_geom, (bytes, bytearray, memoryview)):
+        try:
+            shapely_point = from_wkb(bytes(point_geom))
+            validate_coordinates(
+                latitude=float(shapely_point.y), longitude=float(shapely_point.x)
+            )
+            return float(shapely_point.y), float(shapely_point.x)
+        except Exception as exc:
+            raise ValueError(
+                f"Unable to parse spatial point coordinates from binary WKB: {point_geom!r}"
+            ) from exc
+
     if isinstance(point_geom, WKBElement):
         if isinstance(point_geom.data, (bytes, bytearray, memoryview)):
             shapely_point = from_wkb(bytes(point_geom.data))
+            validate_coordinates(
+                latitude=float(shapely_point.y), longitude=float(shapely_point.x)
+            )
             return float(shapely_point.y), float(shapely_point.x)
         wkt_str = str(point_geom.data)
     elif isinstance(point_geom, WKTElement):
-        wkt_str = point_geom.data
+        wkt_str = str(point_geom.data)
     else:
         wkt_str = str(point_geom)
 
@@ -70,9 +85,21 @@ def parse_point_coordinates(point_geom: Any) -> tuple[float, float]:
         validate_coordinates(latitude=lat, longitude=lon)
         return lat, lon
 
+    clean_str = re.sub(r"^SRID=\d+;\s*", "", wkt_str.strip(), flags=re.IGNORECASE)
     try:
-        clean_wkt = re.sub(r"^SRID=\d+;\s*", "", wkt_str, flags=re.IGNORECASE)
-        shapely_point = from_wkt(clean_wkt)
+        shapely_point = from_wkt(clean_str)
+        validate_coordinates(
+            latitude=float(shapely_point.y), longitude=float(shapely_point.x)
+        )
+        return float(shapely_point.y), float(shapely_point.x)
+    except Exception:
+        pass
+
+    try:
+        shapely_point = from_wkb(clean_str)
+        validate_coordinates(
+            latitude=float(shapely_point.y), longitude=float(shapely_point.x)
+        )
         return float(shapely_point.y), float(shapely_point.x)
     except Exception as exc:
         raise ValueError(

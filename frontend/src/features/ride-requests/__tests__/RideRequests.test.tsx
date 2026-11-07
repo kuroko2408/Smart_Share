@@ -249,5 +249,30 @@ describe('Ride Request UI Components', () => {
       expect(screen.getByText(/departure timing 100%/i)).toBeInTheDocument();
       expect(rideRequestService.findRideMatches).toHaveBeenCalledWith(mockRequest.id);
     });
+
+    it('displays empty state when no compatible proposals are found', async () => {
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
+        target_request_id: mockRequest.id,
+        total_candidates_found: 0,
+        proposals: [],
+      });
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(
+        await screen.findByText(/No compatible active requests found/i)
+      ).toBeInTheDocument();
+    });
+
+    it('displays error state and retry button when matching fails', async () => {
+      vi.spyOn(rideRequestService, 'findRideMatches').mockRejectedValue(
+        new Error('Network error connecting to matching service')
+      );
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(
+        await screen.findByText(/Network error connecting to matching service/i)
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Try again/i })).toBeInTheDocument();
+    });
   });
 });

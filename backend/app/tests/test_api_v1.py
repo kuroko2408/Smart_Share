@@ -349,6 +349,107 @@ async def test_match_access_checks_request_ownership_before_discovery(
 
 
 @pytest.mark.asyncio
+async def test_matching_e2e_discovery_and_proposal_retrieval(
+    client_user_a: AsyncClient,
+    client_user_b: AsyncClient,
+    user_b: AuthUser,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify complete end-to-end matching workflow: discovery, scoring, proposal retrieval, and ownership."""
+    now = datetime.now(UTC)
+    payload_a = {
+        "pickup": {
+            "latitude": 19.0657,
+            "longitude": 72.8687,
+            "label": "BKC Maker Maxity",
+        },
+        "destination": {
+            "latitude": 19.1176,
+            "longitude": 72.9060,
+            "label": "Powai Hiranandani",
+        },
+        "departure_earliest": (now + timedelta(hours=1)).isoformat(),
+        "departure_latest": (now + timedelta(hours=2)).isoformat(),
+        "seats_requested": 1,
+        "max_extra_minutes": 20,
+    }
+    created_a = await client_user_a.post("/api/v1/ride-requests", json=payload_a)
+    assert created_a.status_code == 201
+    req_a_id = created_a.json()["data"]["id"]
+
+    # Candidate B data to return from discover_candidates
+    cand_b_id = uuid.uuid4()
+    mock_candidate_row = {
+        "candidate_id": cand_b_id,
+        "candidate_user_id": user_b.id,
+        "owner_name": "Test Commuter B",
+        "pickup_location": "POINT(72.8690 19.0660)",
+        "destination": "POINT(72.9050 19.1170)",
+        "pickup_label": "BKC One",
+        "destination_label": "Powai Galleria",
+        "departure_earliest": now + timedelta(hours=1),
+        "departure_latest": now + timedelta(hours=2),
+        "seats_requested": 1,
+        "max_extra_minutes": 20,
+        "created_at": now,
+        "pickup_distance_m": 45.0,
+        "dest_distance_m": 120.0,
+        "overlap_seconds": 3600.0,
+    }
+
+    import app.matching.service as matching_service
+
+    async def mock_discover(db, **kwargs):
+        return [mock_candidate_row]
+
+    monkeypatch.setattr(matching_service, "discover_candidates", mock_discover)
+
+    # 1. Trigger match discovery via POST
+    post_res = await client_user_a.post(f"/api/v1/ride-requests/{req_a_id}/matches")
+    assert post_res.status_code == 200
+    post_body = post_res.json()
+    assert post_body["data"]["total_candidates_found"] == 1
+    proposal = post_body["data"]["proposals"][0]
+    proposal_id = proposal["proposal_id"]
+    assert proposal["candidate"]["candidate_display_name"] == "Test Commuter B"
+    assert proposal["candidate"]["scores"]["composite_score"] > 0.90
+    assert len(proposal["ordered_stops"]) == 4
+    assert len(proposal["compatibility_explanations"]) >= 4
+
+    # 2. Retrieve proposals via GET
+    get_res = await client_user_a.get(f"/api/v1/ride-requests/{req_a_id}/matches")
+    assert get_res.status_code == 200
+    get_body = get_res.json()
+    assert get_body["data"]["proposals"][0]["proposal_id"] == proposal_id
+
+    # 3. Retrieve specific proposal detail by proposal_id
+    detail_res = await client_user_a.get(
+        f"/api/v1/matches/{proposal_id}?request_id={req_a_id}"
+    )
+    assert detail_res.status_code == 200
+    assert detail_res.json()["data"]["proposal_id"] == proposal_id
+
+    # 4. Cross-user attempt to query proposal with target request_id returns 403
+    forbidden_res = await client_user_b.get(
+        f"/api/v1/matches/{proposal_id}?request_id={req_a_id}"
+    )
+    assert forbidden_res.status_code == 403
+
+    # 5. Non-existent proposal returns 404
+    non_existent = await client_user_a.get(
+        f"/api/v1/matches/{uuid.uuid4()}?request_id={req_a_id}"
+    )
+    assert non_existent.status_code == 404
+
+    # 6. Cancel target request -> subsequent match query returns 400
+    cancel_res = await client_user_a.post(f"/api/v1/ride-requests/{req_a_id}/cancel")
+    assert cancel_res.status_code == 200
+
+    cancelled_get = await client_user_a.get(f"/api/v1/ride-requests/{req_a_id}/matches")
+    assert cancelled_get.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_invalid_scheme_rejected(
     unauthenticated_client: AsyncClient,
 ) -> None:
