@@ -1,5 +1,7 @@
 """Tests for application initialization, middleware, routing, and exception handling."""
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -73,7 +75,9 @@ def test_app_exception_handler() -> None:
             error_code="RESOURCE_NOT_FOUND",
         )
 
-    with TestClient(test_app) as tc:
+    with TestClient(
+        test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as tc:
         response = tc.get("/test-custom-error")
         assert response.status_code == 404
         data = response.json()

@@ -10,6 +10,7 @@ import type {
   RideRequestUpdate,
   SingleRideRequestResponse,
 } from '@/types/ride-request';
+import type { MatchListResponse, MatchProposal } from '@/types/matching';
 
 export interface ListRideRequestsParams {
   status?: RideRequestStatus;
@@ -73,4 +74,24 @@ export async function cancelRideRequest(
   requestId: string
 ): Promise<SingleRideRequestResponse> {
   return apiClient.post<SingleRideRequestResponse>(`/ride-requests/${requestId}/cancel`);
+}
+
+export async function findRideMatches(requestId: string): Promise<MatchListResponse> {
+  const response = await apiClient.post<{ data: MatchListResponse }>(`/ride-requests/${requestId}/matches`);
+  return response.data;
+}
+
+export async function fetchRideMatches(requestId: string): Promise<MatchListResponse> {
+  const response = await apiClient.get<{ data: MatchListResponse }>(`/ride-requests/${requestId}/matches`);
+  return response.data;
+}
+
+export async function fetchMatchProposal(
+  requestId: string,
+  proposalId: string
+): Promise<MatchProposal> {
+  const response = await apiClient.get<{ data: MatchProposal }>(
+    `/matches/${proposalId}?request_id=${encodeURIComponent(requestId)}`
+  );
+  return response.data;
 }

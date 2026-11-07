@@ -16,6 +16,7 @@ import { CancelRideRequestModal } from '@/features/ride-requests/CancelRideReque
 import { EditRideRequestModal } from '@/features/ride-requests/EditRideRequestModal';
 import { RideRequestCard } from '@/features/ride-requests/RideRequestCard';
 import { RideRequestDetailsModal } from '@/features/ride-requests/RideRequestDetailsModal';
+import { MatchResults } from '@/features/ride-requests/MatchResults';
 import { fetchUserRideRequests } from '@/services/ride-requests';
 import type { RideRequestResponse, RideRequestStatus } from '@/types/ride-request';
 
@@ -38,6 +39,7 @@ export function RideRequestList({ onCreateNewClick }: RideRequestListProps) {
   const [detailsRequest, setDetailsRequest] = useState<RideRequestResponse | null>(null);
   const [editRequest, setEditRequest] = useState<RideRequestResponse | null>(null);
   const [cancelRequest, setCancelRequest] = useState<RideRequestResponse | null>(null);
+  const [matchRequest, setMatchRequest] = useState<RideRequestResponse | null>(null);
 
   const {
     data: listResponse,
@@ -166,6 +168,7 @@ export function RideRequestList({ onCreateNewClick }: RideRequestListProps) {
               onViewDetails={(r) => setDetailsRequest(r)}
               onEdit={(r) => setEditRequest(r)}
               onCancel={(r) => setCancelRequest(r)}
+              onFindMatches={(r) => setMatchRequest(r)}
             />
           ))}
         </div>
@@ -190,6 +193,8 @@ export function RideRequestList({ onCreateNewClick }: RideRequestListProps) {
         onClose={() => setCancelRequest(null)}
         onSuccess={() => refetch()}
       />
+
+      {matchRequest && <MatchResults request={matchRequest} onClose={() => setMatchRequest(null)} />}
     </div>
   );
 }

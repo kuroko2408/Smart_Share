@@ -19,6 +19,7 @@ interface RideRequestCardProps {
   onViewDetails: (request: RideRequestResponse) => void;
   onEdit: (request: RideRequestResponse) => void;
   onCancel: (request: RideRequestResponse) => void;
+  onFindMatches: (request: RideRequestResponse) => void;
 }
 
 export function formatDateTime(isoString: string): string {
@@ -81,6 +82,7 @@ export function RideRequestCard({
   onViewDetails,
   onEdit,
   onCancel,
+  onFindMatches,
 }: RideRequestCardProps) {
   const isEditable = request.status === 'ACTIVE';
   const isCancellable = request.status === 'ACTIVE' || request.status === 'MATCHED';
@@ -138,6 +140,11 @@ export function RideRequestCard({
 
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-1.5 border-t pt-2.5">
+        {isEditable && (
+          <button type="button" onClick={() => onFindMatches(request)} className="px-2.5 py-1 text-2xs font-semibold text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors flex items-center gap-1">
+            <Navigation className="w-3 h-3" /> Find matches
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onViewDetails(request)}

@@ -296,6 +296,9 @@ async def test_unauthenticated_access_rejected(
         ("GET", f"/api/v1/ride-requests/{random_id}", None),
         ("PATCH", f"/api/v1/ride-requests/{random_id}", {}),
         ("POST", f"/api/v1/ride-requests/{random_id}/cancel", None),
+        ("POST", f"/api/v1/ride-requests/{random_id}/matches", None),
+        ("GET", f"/api/v1/ride-requests/{random_id}/matches", None),
+        ("GET", f"/api/v1/matches/{uuid.uuid4()}?request_id={random_id}", None),
     ]
 
     for method, path, payload in endpoints:
@@ -312,6 +315,37 @@ async def test_unauthenticated_access_rejected(
             f"Endpoint {method} {path} should return 401, got {response.status_code}"
         )
         assert response.json()["error_code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
+async def test_match_access_checks_request_ownership_before_discovery(
+    client_user_a: AsyncClient,
+    client_user_b: AsyncClient,
+) -> None:
+    """Missing, non-owned, and cancelled targets fail before PostGIS discovery."""
+    now = datetime.now(UTC)
+    payload = {
+        "pickup": {"latitude": 19.0657, "longitude": 72.8687},
+        "destination": {"latitude": 19.1176, "longitude": 72.9060},
+        "departure_earliest": (now + timedelta(hours=1)).isoformat(),
+        "departure_latest": (now + timedelta(hours=2)).isoformat(),
+        "seats_requested": 1,
+        "max_extra_minutes": 20,
+    }
+    created = await client_user_a.post("/api/v1/ride-requests", json=payload)
+    assert created.status_code == 201
+    request_id = created.json()["data"]["id"]
+
+    missing = await client_user_a.post(f"/api/v1/ride-requests/{uuid.uuid4()}/matches")
+    assert missing.status_code == 404
+
+    cross_user = await client_user_b.post(f"/api/v1/ride-requests/{request_id}/matches")
+    assert cross_user.status_code == 403
+
+    cancelled = await client_user_a.post(f"/api/v1/ride-requests/{request_id}/cancel")
+    assert cancelled.status_code == 200
+    stale = await client_user_a.get(f"/api/v1/ride-requests/{request_id}/matches")
+    assert stale.status_code == 400
 
 
 @pytest.mark.asyncio

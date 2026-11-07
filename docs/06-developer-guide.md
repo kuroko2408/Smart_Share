@@ -15,6 +15,12 @@ It is intended to help both project developers establish a consistent local envi
 
 The commands and configuration below represent the proposed setup. They must be verified against the actual dependency versions and project files created during implementation.
 
+## Matching engine (Phase 4B)
+
+Matching is on-demand and pairwise. Active request cards expose **Find matches**. Backend routing uses OpenRouteService if `ROUTING_API_KEY` is configured; otherwise it calls the public OSRM demo server, which needs no credential and is subject to a one-request-per-second usage limit with no uptime guarantee. `OSRM_BASE_URL` can select an OSRM-compatible server, and `ROUTING_TIMEOUT_SECONDS` configures the timeout. Provider failures use a clearly labeled approximate geographic fallback. Road-network durations are not live traffic predictions; shared-route distance remains approximate. For fallback-only operation, set `ROUTING_PROVIDER=fallback`. See [the Phase 4B algorithm and API guide](phase4b-matching-algorithm.md) for eligibility, ranking, response fields and known limits.
+
+Run backend checks from `backend/` with the project environment (`.venv/bin/pytest` and `.venv/bin/ruff check app`), and frontend checks from `frontend/` with `npm test -- --run`, `npm run lint`, `npm run typecheck` and `npm run build`.
+
 ## 2. Prerequisites
 
 Install the following:
@@ -192,6 +198,8 @@ SUPABASE_JWT_SECRET=
 
 ROUTING_PROVIDER=
 ROUTING_API_KEY=
+ROUTING_TIMEOUT_SECONDS=5
+OSRM_BASE_URL=https://router.project-osrm.org
 
 CORS_ORIGINS=http://localhost:5173
 

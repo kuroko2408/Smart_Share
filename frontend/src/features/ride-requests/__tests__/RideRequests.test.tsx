@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RideRequestCard } from '@/features/ride-requests/RideRequestCard';
 import { RideRequestForm } from '@/features/ride-requests/RideRequestForm';
 import { RideRequestList } from '@/features/ride-requests/RideRequestList';
+import { MatchResults } from '@/features/ride-requests/MatchResults';
 import * as rideRequestService from '@/services/ride-requests';
 import type { RideRequestResponse } from '@/types/ride-request';
 
@@ -116,6 +117,7 @@ describe('Ride Request UI Components', () => {
           onViewDetails={onViewDetails}
           onEdit={onEdit}
           onCancel={onCancel}
+          onFindMatches={vi.fn()}
         />
       );
 
@@ -146,6 +148,7 @@ describe('Ride Request UI Components', () => {
           onViewDetails={vi.fn()}
           onEdit={vi.fn()}
           onCancel={vi.fn()}
+          onFindMatches={vi.fn()}
         />
       );
 
@@ -198,6 +201,53 @@ describe('Ride Request UI Components', () => {
       await waitFor(() => {
         expect(screen.queryByText(/Ride Request Details/i)).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('MatchResults', () => {
+    it('starts discovery, shows ranked results, route accuracy, and match explanation', async () => {
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
+        target_request_id: mockRequest.id,
+        total_candidates_found: 1,
+        proposals: [{
+          proposal_id: 'proposal-1',
+          target_request_id: mockRequest.id,
+          candidate: {
+            candidate_request_id: 'candidate-1',
+            candidate_display_name: 'Rider',
+            candidate_pickup: { latitude: 19.066, longitude: 72.869, label: 'Nearby' },
+            candidate_destination: { latitude: 19.09, longitude: 72.87, label: 'Airport' },
+            seats_requested: 1,
+            pickup_distance_meters: 200,
+            destination_distance_meters: 300,
+            shared_departure_window_start: mockRequest.departure_earliest,
+            shared_departure_window_end: mockRequest.departure_latest,
+            estimated_detour_minutes_target: 4,
+            estimated_detour_minutes_candidate: 2,
+            scores: { pickup_proximity_score: .9, destination_similarity_score: .8, departure_time_score: 1, route_detour_score: .7, composite_score: .85 },
+          },
+          ordered_stops: [
+            { sequence: 1, stop_type: 'PICKUP', location: mockRequest.pickup, passenger_request_id: mockRequest.id },
+            { sequence: 2, stop_type: 'DROPOFF', location: mockRequest.destination, passenger_request_id: mockRequest.id },
+          ],
+          total_shared_distance_km: 8,
+          total_shared_duration_minutes: 30,
+          best_sequence: 'PA→PB→DA→DB',
+          is_route_approximate: true,
+          distance_is_approximate: true,
+          routing_accuracy: 'geographic_approximation',
+          routing_notice: 'Approximate geographic fallback',
+          compatibility_explanations: ['Pickups are nearby.'],
+          created_at: mockRequest.created_at,
+        }],
+      });
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(await screen.findByText(/85% match/i)).toBeInTheDocument();
+      expect(screen.getByText(/Approximate geographic fallback/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Why this suggestion/i }));
+      expect(screen.getByText(/departure timing 100%/i)).toBeInTheDocument();
+      expect(rideRequestService.findRideMatches).toHaveBeenCalledWith(mockRequest.id);
     });
   });
 });

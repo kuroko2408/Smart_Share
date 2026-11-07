@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # Routing provider placeholders (e.g. OpenRouteService, OSRM, Google Maps)
     ROUTING_PROVIDER: str = ""
     ROUTING_API_KEY: str = ""
+    ROUTING_TIMEOUT_SECONDS: float = 5.0
+    OSRM_BASE_URL: str = "https://router.project-osrm.org"
 
     # CORS origins (stored as a list of strings)
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

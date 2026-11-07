@@ -1,6 +1,7 @@
 """Tests for Supabase JWT verification and FastAPI authentication dependencies."""
 
 import json
+import sys
 import time
 import uuid
 from typing import Any
@@ -368,7 +369,9 @@ def test_protected_endpoint_valid_token(
     user_id = uuid.uuid4()
     token = create_token(private_key, sub=str(user_id), email="rider@test.com")
 
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         response = client.get(
             "/protected",
             headers={"Authorization": f"Bearer {token}"},
@@ -382,7 +385,9 @@ def test_protected_endpoint_valid_token(
 
 def test_protected_endpoint_missing_token(auth_test_app: FastAPI) -> None:
     """Verify missing Authorization header returns 401 with WWW-Authenticate header."""
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         response = client.get("/protected")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.headers.get("www-authenticate") == "Bearer"
@@ -393,7 +398,9 @@ def test_protected_endpoint_missing_token(auth_test_app: FastAPI) -> None:
 
 def test_protected_endpoint_invalid_scheme(auth_test_app: FastAPI) -> None:
     """Verify non-Bearer authorization scheme returns 401."""
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         response = client.get(
             "/protected",
             headers={"Authorization": "Basic dXNlcjpwYXNz"},
@@ -405,7 +412,9 @@ def test_protected_endpoint_invalid_scheme(auth_test_app: FastAPI) -> None:
 
 def test_protected_endpoint_invalid_token(auth_test_app: FastAPI) -> None:
     """Verify invalid token on protected endpoint returns 401."""
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         response = client.get(
             "/protected",
             headers={"Authorization": "Bearer not.a.valid.jwt"},
@@ -424,7 +433,9 @@ def test_optional_endpoint_behavior(
     user_id = uuid.uuid4()
     token = create_token(private_key, sub=str(user_id))
 
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         # Case 1: Unauthenticated
         resp_unauth = client.get("/optional")
         assert resp_unauth.status_code == status.HTTP_200_OK
@@ -451,7 +462,9 @@ def test_never_trust_frontend_user_id(
     spoofed_user_id = uuid.uuid4()
     token = create_token(private_key, sub=str(real_user_id))
 
-    with TestClient(auth_test_app) as client:
+    with TestClient(
+        auth_test_app, backend_options={"use_uvloop": sys.platform != "win32"}
+    ) as client:
         # Access with matching ID succeeds
         good_resp = client.post(
             f"/resource/{real_user_id}",
