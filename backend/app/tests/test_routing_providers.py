@@ -231,3 +231,234 @@ async def test_ors_provider_matrix_and_fallback(
     route = await provider.get_multi_waypoint_route(waypoints)
     assert route.total_distance.is_approximate
     assert route.total_distance.source == DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+
+
+@pytest.mark.asyncio
+async def test_ors_provider_directions_geojson_successful_parsing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify ORS Directions API successful response parsing into GeoJSON LineString and legs."""
+    provider = ORSRoutingProvider(api_key="test-key")
+
+    fake_ors_geojson_response = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [72.868700, 19.065700],
+                        [72.875000, 19.075000],
+                        [72.906000, 19.117600],
+                    ],
+                },
+                "properties": {
+                    "summary": {
+                        "distance": 9107.7,
+                        "duration": 743.9,
+                    },
+                    "segments": [
+                        {"distance": 450.0, "duration": 60.0},
+                        {"distance": 8657.7, "duration": 683.9},
+                    ],
+                },
+            }
+        ],
+    }
+
+    class MockORSClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url: str, **kwargs):
+            request = httpx.Request("POST", url)
+            return httpx.Response(200, json=fake_ors_geojson_response, request=request)
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockORSClient)
+
+    waypoints = [
+        (19.0657, 72.8687),
+        (19.0750, 72.8750),
+        (19.1176, 72.9060),
+    ]
+    route = await provider.get_multi_waypoint_route(
+        waypoints,
+        stop_ids=["s1", "s2", "s3"],
+        stop_labels=["BKC", "Kurla", "Powai"],
+    )
+
+    assert not route.total_distance.is_approximate
+    assert route.total_distance.source == DistanceSource.PROVIDER_ROAD_NETWORK_ROUTE
+    assert route.total_distance.distance_meters == 9107.7
+    assert route.total_duration_seconds == 743.9
+    assert len(route.legs) == 2
+    assert route.legs[0].distance_meters == 450.0
+    assert route.legs[0].duration_seconds == 60.0
+    assert route.legs[1].distance_meters == 8657.7
+    assert route.legs[1].duration_seconds == 683.9
+
+    # RFC 7946 coordinate ordering: [longitude, latitude]
+    coords = route.full_geometry_geojson["coordinates"]
+    assert len(coords) == 3
+    assert coords[0] == [72.868700, 19.065700]
+    assert coords[1] == [72.875000, 19.075000]
+    assert coords[2] == [72.906000, 19.117600]
+
+
+@pytest.mark.asyncio
+async def test_osrm_table_api_timeout_triggers_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify OSRM Table API timeout triggers graceful fallback with approximate flags."""
+    from app.matching.detour import evaluate_pairwise_detour
+
+    provider = OSRMRoutingProvider()
+
+    async def timeout_matrix(points):
+        req = httpx.Request(
+            "GET", "https://router.project-osrm.org/table/v1/driving/..."
+        )
+        raise httpx.TimeoutException("OSRM Table connection timed out", request=req)
+
+    monkeypatch.setattr(provider, "_get_matrix", timeout_matrix)
+
+    pts = [
+        (19.0657, 72.8687),
+        (19.0688, 72.8790),
+        (19.1176, 72.9060),
+        (19.1200, 72.9100),
+    ]
+    result = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pts[0],
+        pickup_b=pts[1],
+        dest_a=pts[2],
+        dest_b=pts[3],
+        max_extra_a=30,
+        max_extra_b=30,
+    )
+
+    assert result is not None
+    assert result.is_approximate
+    assert result.distance_source == DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+    assert "tortuosity factor 1.40" in result.notice
+
+
+@pytest.mark.asyncio
+async def test_osrm_table_api_http_429_triggers_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify OSRM Table API HTTP 429 rate limit triggers graceful fallback."""
+    from app.matching.detour import evaluate_pairwise_detour
+
+    provider = OSRMRoutingProvider()
+
+    async def rate_limited_matrix(points):
+        req = httpx.Request(
+            "GET", "https://router.project-osrm.org/table/v1/driving/..."
+        )
+        resp = httpx.Response(429, request=req)
+        raise httpx.HTTPStatusError("Too Many Requests", request=req, response=resp)
+
+    monkeypatch.setattr(provider, "_get_matrix", rate_limited_matrix)
+
+    pts = [
+        (19.0657, 72.8687),
+        (19.0688, 72.8790),
+        (19.1176, 72.9060),
+        (19.1200, 72.9100),
+    ]
+    result = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pts[0],
+        pickup_b=pts[1],
+        dest_a=pts[2],
+        dest_b=pts[3],
+        max_extra_a=30,
+        max_extra_b=30,
+    )
+
+    assert result is not None
+    assert result.is_approximate
+    assert result.distance_source == DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+
+
+@pytest.mark.asyncio
+async def test_osrm_table_api_invalid_payload_triggers_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify invalid status code in OSRM payload triggers graceful fallback."""
+    from app.matching.detour import evaluate_pairwise_detour
+
+    provider = OSRMRoutingProvider()
+
+    async def invalid_matrix(points):
+        return {"code": "InvalidQuery", "message": "Could not find route"}
+
+    monkeypatch.setattr(provider, "_get_matrix", invalid_matrix)
+
+    pts = [
+        (19.0657, 72.8687),
+        (19.0688, 72.8790),
+        (19.1176, 72.9060),
+        (19.1200, 72.9100),
+    ]
+    result = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pts[0],
+        pickup_b=pts[1],
+        dest_a=pts[2],
+        dest_b=pts[3],
+        max_extra_a=30,
+        max_extra_b=30,
+    )
+
+    assert result is not None
+    assert result.is_approximate
+    assert result.distance_source == DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+
+
+@pytest.mark.asyncio
+async def test_osrm_table_api_none_values_triggers_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify None matrix entries trigger graceful fallback."""
+    from app.matching.detour import evaluate_pairwise_detour
+
+    provider = OSRMRoutingProvider()
+
+    async def none_matrix(points):
+        return {
+            "code": "Ok",
+            "durations": [[0, None], [None, 0]],
+            "distances": [[0, None], [None, 0]],
+        }
+
+    monkeypatch.setattr(provider, "_get_matrix", none_matrix)
+
+    pts = [
+        (19.0657, 72.8687),
+        (19.0688, 72.8790),
+        (19.1176, 72.9060),
+        (19.1200, 72.9100),
+    ]
+    result = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pts[0],
+        pickup_b=pts[1],
+        dest_a=pts[2],
+        dest_b=pts[3],
+        max_extra_a=30,
+        max_extra_b=30,
+    )
+
+    assert result is not None
+    assert result.is_approximate
+    assert result.distance_source == DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK

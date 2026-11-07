@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Centralized application settings loaded from environment or .env file."""
 
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(".env", "backend/.env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

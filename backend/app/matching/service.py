@@ -79,6 +79,7 @@ class MatchProposal:
     scores: ScoreBreakdown
     created_at: datetime
     # Phase 5A additions
+    target_max_extra_minutes: int = 15
     total_shared_distance_meters: float = 0.0
     distance_source: str = DistanceSource.PROVIDER_MATRIX_TABLE.value
     distance_is_approximate: bool = False
@@ -176,8 +177,14 @@ def _compute_passenger_metrics(
 async def enrich_proposal_geometry(
     proposal: MatchProposal,
     routing: RoutingProvider,
-) -> MatchProposal:
-    """Enrich a match proposal with full multi-waypoint road geometry and per-leg metrics."""
+) -> MatchProposal | None:
+    """Enrich a match proposal with full multi-waypoint road geometry and per-leg metrics.
+
+    Re-validates that recalculated continuous road detours satisfy each passenger's
+    maximum detour tolerance:
+        final_pooled_duration_i - solo_direct_duration_i <= max_extra_minutes_i
+    Returns None if continuous route detour exceeds either passenger's limit.
+    """
     waypoints = [(s.latitude, s.longitude) for s in proposal.stops]
     stop_ids = [str(s.passenger_request_id) for s in proposal.stops]
     stop_labels = [s.label for s in proposal.stops]
@@ -188,6 +195,35 @@ async def enrich_proposal_geometry(
             stop_ids=stop_ids,
             stop_labels=stop_labels,
         )
+
+        # Recompute per-passenger metrics using Route API legs
+        recomputed_metrics = _compute_passenger_metrics(
+            proposal=proposal,
+            legs=route.legs,
+            source=route.total_distance.source,
+            is_approximate=route.total_distance.is_approximate,
+        )
+
+        target_m = recomputed_metrics[str(proposal.target_request_id)]
+        candidate_m = recomputed_metrics[str(proposal.candidate_request_id)]
+
+        # Enforce invariant: final_pooled_duration_i - solo_direct_duration_i <= max_extra_minutes_i
+        if (
+            target_m.detour_duration_minutes > proposal.target_max_extra_minutes
+            or candidate_m.detour_duration_minutes
+            > proposal.candidate_max_extra_minutes
+        ):
+            logger.info(
+                "Proposal %s rejected after Route API evaluation: detour exceeds limit "
+                "(target=%.1f/max=%d, candidate=%.1f/max=%d)",
+                proposal.proposal_id,
+                target_m.detour_duration_minutes,
+                proposal.target_max_extra_minutes,
+                candidate_m.detour_duration_minutes,
+                proposal.candidate_max_extra_minutes,
+            )
+            return None
+
         proposal.total_shared_distance_m = route.total_distance.distance_meters
         proposal.total_shared_distance_meters = route.total_distance.distance_meters
         proposal.total_shared_duration_seconds = route.total_duration_seconds
@@ -200,13 +236,9 @@ async def enrich_proposal_geometry(
         if route.routing_notice:
             proposal.routing_notice = route.routing_notice
 
-        # Recompute per-passenger metrics using Route API legs
-        proposal.passenger_metrics = _compute_passenger_metrics(
-            proposal=proposal,
-            legs=route.legs,
-            source=route.total_distance.source,
-            is_approximate=route.total_distance.is_approximate,
-        )
+        proposal.passenger_metrics = recomputed_metrics
+        proposal.detour_target_minutes = target_m.detour_duration_minutes
+        proposal.detour_candidate_minutes = candidate_m.detour_duration_minutes
     except Exception as exc:
         logger.warning(
             "Failed to enrich proposal %s geometry (%s); synthesizing straight-line fallback.",
@@ -222,6 +254,8 @@ async def enrich_proposal_geometry(
             "coordinates": cleaned_coords,
         }
         proposal.routing_accuracy = "matrix_duration_synthesized_geometry"
+        proposal.is_route_approximate = True
+        proposal.distance_is_approximate = True
 
     return proposal
 
@@ -453,6 +487,7 @@ async def run_matching(
             candidate_dest_label=row.get("destination_label"),
             candidate_seats=int(row["seats_requested"]),
             candidate_max_extra_minutes=int(row["max_extra_minutes"]),
+            target_max_extra_minutes=target.max_extra_minutes,
             candidate_departure_earliest=cand_earliest,
             candidate_departure_latest=cand_latest,
             pickup_distance_m=pickup_dist_m,
@@ -499,11 +534,26 @@ async def run_matching(
         )
     )
 
-    top_proposals = proposals[:TOP_K_PROPOSALS]
-
     # DEC-001: Enrich Top 1 proposal with full GeoJSON route geometry and Route API metrics
-    if top_proposals:
-        top_proposals[0] = await enrich_proposal_geometry(top_proposals[0], routing)
+    # Revalidates continuous route detour invariant: final_pooled_duration_i - solo_direct_duration_i <= max_extra_minutes_i
+    valid_proposals: list[MatchProposal] = []
+    top_enriched = False
+
+    for proposal in proposals:
+        if not top_enriched:
+            enriched = await enrich_proposal_geometry(proposal, routing)
+            if enriched is not None:
+                valid_proposals.append(enriched)
+                top_enriched = True
+            else:
+                logger.info(
+                    "Top proposal %s rejected after Route API continuous route evaluation; evaluating next candidate.",
+                    proposal.proposal_id,
+                )
+        else:
+            valid_proposals.append(proposal)
+
+    top_proposals = valid_proposals[:TOP_K_PROPOSALS]
 
     logger.info(
         "Matching completed request=%s candidates=%d proposals=%d elapsed_ms=%.1f",

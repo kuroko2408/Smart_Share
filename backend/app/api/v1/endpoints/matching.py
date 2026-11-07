@@ -286,7 +286,13 @@ async def get_proposal_detail(
     for p in proposals:
         if p.proposal_id == proposal_id:
             if p.route_geometry is None:
-                p = await enrich_proposal_geometry(p, routing)
+                enriched = await enrich_proposal_geometry(p, routing)
+                if enriched is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Proposal not found or no longer valid.",
+                    )
+                p = enriched
             return DataResponse(
                 data=_proposal_to_schema(p),
                 message="Match proposal retrieved successfully",
