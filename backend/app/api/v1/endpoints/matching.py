@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -18,16 +19,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db as get_db_session
-from app.matching.service import MatchProposal, run_matching
+from app.matching.service import (
+    MatchProposal,
+    enrich_proposal_geometry,
+    run_matching,
+)
 from app.models.ride_request import RideRequest, RideRequestStatus
 from app.routing.provider_factory import get_routing_provider
 from app.schemas.auth import AuthUser
 from app.schemas.common import DataResponse
 from app.schemas.matching import (
+    GeoJSONLineStringSchema,
     LocationPointSchema,
     MatchCandidateSummarySchema,
     MatchListResponseSchema,
     MatchProposalSchema,
+    PassengerJourneyDetailSchema,
+    RouteLegSchema,
     ScoreBreakdownSchema,
     StopPointSchema,
 )
@@ -36,6 +44,16 @@ router = APIRouter(prefix="/ride-requests", tags=["matching"])
 proposal_router = APIRouter(prefix="/matches", tags=["matching"])
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_uuid(val: Any) -> uuid.UUID:
+    """Safely convert any identifier to a UUID object."""
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val))
+    except (ValueError, TypeError):
+        return uuid.uuid5(uuid.NAMESPACE_DNS, str(val))
 
 
 async def _get_active_owned_request(
@@ -118,21 +136,61 @@ def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
         for s in p.stops
     ]
 
+    route_legs = [
+        RouteLegSchema(
+            sequence=leg.sequence,
+            start_stop_id=_parse_uuid(leg.start_stop_id),
+            end_stop_id=_parse_uuid(leg.end_stop_id),
+            start_label=leg.start_label,
+            end_label=leg.end_label,
+            distance_meters=round(leg.distance_meters, 1),
+            distance_km=leg.distance_km,
+            duration_seconds=round(leg.duration_seconds, 1),
+            duration_minutes=leg.duration_minutes,
+        )
+        for leg in p.route_legs
+    ]
+
+    passenger_metrics = {
+        req_id: PassengerJourneyDetailSchema(
+            passenger_request_id=_parse_uuid(req_id),
+            solo_direct_distance_km=m.solo_direct_distance_km,
+            solo_direct_distance_meters=round(m.solo_direct_distance_meters, 1),
+            solo_direct_duration_minutes=m.solo_direct_duration_minutes,
+            solo_direct_duration_seconds=round(m.solo_direct_duration_seconds, 1),
+            pooled_distance_km=m.pooled_distance_km,
+            pooled_distance_meters=round(m.pooled_journey_distance_meters, 1),
+            pooled_duration_minutes=m.pooled_duration_minutes,
+            pooled_duration_seconds=round(m.pooled_journey_duration_seconds, 1),
+            detour_distance_km=m.detour_distance_km,
+            detour_distance_meters=round(m.detour_distance_meters, 1),
+            detour_duration_minutes=round(m.detour_duration_minutes, 1),
+        )
+        for req_id, m in p.passenger_metrics.items()
+    }
+
+    route_geometry = None
+    if p.route_geometry:
+        raw_coords = p.route_geometry.get("coordinates", [])
+        route_geometry = GeoJSONLineStringSchema(
+            type="LineString",
+            coordinates=[(float(c[0]), float(c[1])) for c in raw_coords],
+        )
+
     return MatchProposalSchema(
         proposal_id=p.proposal_id,
         target_request_id=p.target_request_id,
         candidate=candidate,
         ordered_stops=stops,
         total_shared_distance_km=round(p.total_shared_distance_m / 1000, 2),
+        total_shared_distance_meters=round(p.total_shared_distance_m, 1),
         total_shared_duration_minutes=round(p.total_shared_duration_seconds / 60, 1),
+        total_shared_duration_seconds=round(p.total_shared_duration_seconds, 1),
         best_sequence=p.best_sequence_label,
         is_route_approximate=p.is_route_approximate,
-        distance_is_approximate=True,
-        routing_accuracy=(
-            "geographic_approximation"
-            if p.is_route_approximate
-            else "road_network_duration_geographic_distance"
-        ),
+        distance_is_approximate=p.distance_is_approximate,
+        distance_source=p.distance_source,
+        routing_accuracy=p.routing_accuracy,
         routing_notice=p.routing_notice,
         compatibility_explanations=[
             f"Pickup points are {round(p.pickup_distance_m)} metres apart.",
@@ -142,6 +200,9 @@ def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
             "Combined seat requests fit the standard four-passenger vehicle limit.",
         ],
         created_at=p.created_at,
+        route_geometry=route_geometry,
+        route_legs=route_legs,
+        passenger_metrics=passenger_metrics,
     )
 
 
@@ -217,12 +278,15 @@ async def get_proposal_detail(
     Retrieve details of a specific proposal.
     Requires the target request_id as a query parameter to verify ownership.
     Re-runs matching and finds the matching proposal_id.
+    Enriches with route geometry on-demand if not already populated.
     """
     target = await _get_active_owned_request(request_id, db, current_user)
     routing = get_routing_provider()
     proposals = await run_matching(db, routing, target)
     for p in proposals:
         if p.proposal_id == proposal_id:
+            if p.route_geometry is None:
+                p = await enrich_proposal_geometry(p, routing)
             return DataResponse(
                 data=_proposal_to_schema(p),
                 message="Match proposal retrieved successfully",

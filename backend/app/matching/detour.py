@@ -6,7 +6,11 @@ import logging
 import math
 from dataclasses import dataclass
 
-from app.routing.base import RoutingProvider
+from app.routing.base import (
+    DistanceSource,
+    RoutingMatrixResult,
+    RoutingProvider,
+)
 from app.routing.fallback import FALLBACK_NOTICE
 
 logger = logging.getLogger(__name__)
@@ -34,19 +38,30 @@ class StopSequenceResult:
     duration_direct_b_seconds: float
     detour_a_minutes: float
     detour_b_minutes: float
-    is_approximate: bool
+    distance_total_meters: float = 0.0
+    distance_direct_a_meters: float = 0.0
+    distance_direct_b_meters: float = 0.0
+    detour_a_distance_meters: float = 0.0
+    detour_b_distance_meters: float = 0.0
+    distance_source: DistanceSource = DistanceSource.PROVIDER_MATRIX_TABLE
+    is_approximate: bool = False
     notice: str = ""
 
 
 @dataclass
 class BestRouteResult:
-    """The best valid stop sequence for a pairwise match, plus direct route durations."""
+    """The best valid stop sequence for a pairwise match, plus direct route metrics."""
 
     best_sequence: StopSequenceResult
     duration_direct_a_seconds: float
     duration_direct_b_seconds: float
-    is_approximate: bool
+    distance_direct_a_meters: float = 0.0
+    distance_direct_b_meters: float = 0.0
+    distance_source: DistanceSource = DistanceSource.PROVIDER_MATRIX_TABLE
+    routing_accuracy: str = ""
+    is_approximate: bool = False
     notice: str = ""
+    matrix_result: RoutingMatrixResult | None = None
 
 
 async def evaluate_pairwise_detour(
@@ -65,17 +80,34 @@ async def evaluate_pairwise_detour(
     # Indices: 0=PA, 1=PB, 2=DA, 3=DB
 
     try:
-        matrix = await provider.get_duration_matrix(points)
-        if len(matrix) != len(points) or any(len(row) != len(points) for row in matrix):
-            raise ValueError(
-                "Routing provider returned an invalid duration matrix shape"
-            )
-        if any(
-            not math.isfinite(value) or value < 0 for row in matrix for value in row
+        matrix_res = await provider.get_route_matrix(points)
+        durations = matrix_res.durations
+        distances = matrix_res.distances
+
+        if (
+            len(durations) != len(points)
+            or any(len(row) != len(points) for row in durations)
+            or len(distances) != len(points)
+            or any(len(row) != len(points) for row in distances)
         ):
-            raise ValueError("Routing provider returned an invalid duration value")
-        is_approx = False
-        notice = getattr(provider, "routing_notice", "")
+            raise ValueError("Routing provider returned an invalid matrix shape")
+        if any(
+            not math.isfinite(value) or value < 0 for row in durations for value in row
+        ) or any(
+            not math.isfinite(value) or value < 0 for row in distances for value in row
+        ):
+            raise ValueError(
+                "Routing provider returned an invalid duration or distance value"
+            )
+
+        is_approx = matrix_res.is_approximate
+        source = (
+            DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+            if is_approx
+            else DistanceSource.PROVIDER_MATRIX_TABLE
+        )
+        accuracy = matrix_res.routing_accuracy
+        notice = matrix_res.notice or getattr(provider, "routing_notice", "")
     except Exception as exc:
         logger.warning(
             "Routing provider failed (%s); using approximate fallback.",
@@ -84,18 +116,20 @@ async def evaluate_pairwise_detour(
         from app.routing.fallback import FallbackRoutingProvider
 
         fallback = FallbackRoutingProvider()
-        matrix = await fallback.get_duration_matrix(points)
+        matrix_res = await fallback.get_route_matrix(points)
+        durations = matrix_res.durations
+        distances = matrix_res.distances
         is_approx = True
+        source = DistanceSource.CALIBRATED_TORTUOSITY_FALLBACK
+        accuracy = matrix_res.routing_accuracy
         notice = FALLBACK_NOTICE
 
-    # Direct durations
-    # PA→DA (direct A)
-    direct_a_s = matrix[0][2]
-    # PB→DB (direct B)
-    direct_b_s = matrix[1][3]
+    # Direct durations and distances: PA→DA (direct A), PB→DB (direct B)
+    direct_a_s = durations[0][2]
+    direct_b_s = durations[1][3]
+    direct_a_m = distances[0][2]
+    direct_b_m = distances[1][3]
 
-    # Stop indices: PA=0, PB=1, DA=2, DB=3. A's direct is PA→DA; B's is PB→DB.
-    # Permutations enforce both precedence constraints before any route is measured.
     results: list[StopSequenceResult] = []
     stop_names = {0: "PA", 1: "PB", 2: "DA", 3: "DB"}
     for order in valid_pairwise_stop_orders():
@@ -103,27 +137,51 @@ async def evaluate_pairwise_detour(
         # A proposal must include a segment with both passengers onboard.
         if max(positions[0], positions[1]) >= min(positions[2], positions[3]):
             continue
-        elapsed = 0.0
-        for left, right in zip(order, order[1:], strict=False):
-            elapsed += matrix[left][right]
+
+        elapsed_s = sum(
+            durations[left][right]
+            for left, right in zip(order, order[1:], strict=False)
+        )
+        elapsed_m = sum(
+            distances[left][right]
+            for left, right in zip(order, order[1:], strict=False)
+        )
+
         pos_a, pos_b = positions[0], positions[1]
-        time_a = sum(matrix[order[i]][order[i + 1]] for i in range(pos_a, positions[2]))
-        time_b = sum(matrix[order[i]][order[i + 1]] for i in range(pos_b, positions[3]))
+        time_a = sum(
+            durations[order[i]][order[i + 1]] for i in range(pos_a, positions[2])
+        )
+        time_b = sum(
+            durations[order[i]][order[i + 1]] for i in range(pos_b, positions[3])
+        )
+        dist_a = sum(
+            distances[order[i]][order[i + 1]] for i in range(pos_a, positions[2])
+        )
+        dist_b = sum(
+            distances[order[i]][order[i + 1]] for i in range(pos_b, positions[3])
+        )
+
         label = "→".join(stop_names[stop] for stop in order)
         results.append(
             StopSequenceResult(
                 sequence_label=label,
-                duration_total_seconds=elapsed,
+                duration_total_seconds=elapsed_s,
                 duration_direct_a_seconds=direct_a_s,
                 duration_direct_b_seconds=direct_b_s,
                 detour_a_minutes=max(0.0, (time_a - direct_a_s) / 60.0),
                 detour_b_minutes=max(0.0, (time_b - direct_b_s) / 60.0),
+                distance_total_meters=elapsed_m,
+                distance_direct_a_meters=direct_a_m,
+                distance_direct_b_meters=direct_b_m,
+                detour_a_distance_meters=max(0.0, dist_a - direct_a_m),
+                detour_b_distance_meters=max(0.0, dist_b - direct_b_m),
+                distance_source=source,
                 is_approximate=is_approx,
                 notice=notice,
             )
         )
 
-    # Hard-gate: filter sequences where any passenger exceeds their tolerance
+    # Hard-gate: filter sequences where any passenger exceeds their time tolerance (DEC-003: strictly time-based)
     feasible = [
         r
         for r in results
@@ -133,7 +191,7 @@ async def evaluate_pairwise_detour(
     if not feasible:
         return None
 
-    # Select sequence with minimum total detour
+    # Select sequence with minimum total detour (time)
     best = min(
         feasible,
         key=lambda r: (
@@ -146,6 +204,11 @@ async def evaluate_pairwise_detour(
         best_sequence=best,
         duration_direct_a_seconds=direct_a_s,
         duration_direct_b_seconds=direct_b_s,
+        distance_direct_a_meters=direct_a_m,
+        distance_direct_b_meters=direct_b_m,
+        distance_source=best.distance_source,
+        routing_accuracy=accuracy,
         is_approximate=best.is_approximate,
         notice=best.notice,
+        matrix_result=matrix_res,
     )

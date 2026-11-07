@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -44,20 +45,62 @@ class MatchCandidateSummarySchema(BaseModel):
     scores: ScoreBreakdownSchema
 
 
+class GeoJSONLineStringSchema(BaseModel):
+    type: Literal["LineString"] = "LineString"
+    coordinates: list[tuple[float, float]] = Field(
+        ..., description="Array of [longitude, latitude] coordinate pairs (RFC 7946)"
+    )
+
+
+class RouteLegSchema(BaseModel):
+    sequence: int
+    start_stop_id: uuid.UUID
+    end_stop_id: uuid.UUID
+    start_label: str | None = None
+    end_label: str | None = None
+    distance_meters: float
+    distance_km: float
+    duration_seconds: float
+    duration_minutes: float
+
+
+class PassengerJourneyDetailSchema(BaseModel):
+    passenger_request_id: uuid.UUID
+    solo_direct_distance_km: float
+    solo_direct_distance_meters: float
+    solo_direct_duration_minutes: float
+    solo_direct_duration_seconds: float
+    pooled_distance_km: float
+    pooled_distance_meters: float
+    pooled_duration_minutes: float
+    pooled_duration_seconds: float
+    detour_distance_km: float
+    detour_distance_meters: float
+    detour_duration_minutes: float
+
+
 class MatchProposalSchema(BaseModel):
     proposal_id: uuid.UUID
     target_request_id: uuid.UUID
     candidate: MatchCandidateSummarySchema
     ordered_stops: list[StopPointSchema]
     total_shared_distance_km: float
+    total_shared_distance_meters: float = 0.0
     total_shared_duration_minutes: float
+    total_shared_duration_seconds: float = 0.0
     best_sequence: str
     is_route_approximate: bool
     distance_is_approximate: bool
+    distance_source: str = "provider_matrix_table"
     routing_accuracy: str
     routing_notice: str
     compatibility_explanations: list[str]
     created_at: datetime
+    route_geometry: GeoJSONLineStringSchema | None = None
+    route_legs: list[RouteLegSchema] = Field(default_factory=list)
+    passenger_metrics: dict[str, PassengerJourneyDetailSchema] = Field(
+        default_factory=dict
+    )
 
 
 class MatchListResponseSchema(BaseModel):

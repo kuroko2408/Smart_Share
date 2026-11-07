@@ -30,20 +30,58 @@ export interface MatchStop {
   passenger_request_id: string;
 }
 
+export interface GeoJSONLineString {
+  type: 'LineString';
+  coordinates: [number, number][];
+}
+
+export interface RouteLeg {
+  sequence: number;
+  start_stop_id: string;
+  end_stop_id: string;
+  start_label?: string | null;
+  end_label?: string | null;
+  distance_meters: number;
+  distance_km: number;
+  duration_seconds: number;
+  duration_minutes: number;
+}
+
+export interface PassengerJourneyDetail {
+  passenger_request_id: string;
+  solo_direct_distance_km: number;
+  solo_direct_distance_meters: number;
+  solo_direct_duration_minutes: number;
+  solo_direct_duration_seconds: number;
+  pooled_distance_km: number;
+  pooled_distance_meters: number;
+  pooled_duration_minutes: number;
+  pooled_duration_seconds: number;
+  detour_distance_km: number;
+  detour_distance_meters: number;
+  detour_duration_minutes: number;
+}
+
 export interface MatchProposal {
   proposal_id: string;
   target_request_id: string;
   candidate: MatchCandidate;
   ordered_stops: MatchStop[];
   total_shared_distance_km: number;
+  total_shared_distance_meters?: number;
   total_shared_duration_minutes: number;
+  total_shared_duration_seconds?: number;
   best_sequence: string;
   is_route_approximate: boolean;
   distance_is_approximate: boolean;
+  distance_source?: string;
   routing_accuracy: string;
   routing_notice: string;
   compatibility_explanations: string[];
   created_at: string;
+  route_geometry?: GeoJSONLineString | null;
+  route_legs?: RouteLeg[];
+  passenger_metrics?: Record<string, PassengerJourneyDetail>;
 }
 
 export interface MatchListResponse {

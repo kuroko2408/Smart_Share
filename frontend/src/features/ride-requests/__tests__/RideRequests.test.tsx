@@ -250,6 +250,119 @@ describe('Ride Request UI Components', () => {
       expect(rideRequestService.findRideMatches).toHaveBeenCalledWith(mockRequest.id);
     });
 
+    it('renders route geometry badge when geometry is present', async () => {
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
+        target_request_id: mockRequest.id,
+        total_candidates_found: 1,
+        proposals: [{
+          proposal_id: 'prop-top-1',
+          target_request_id: mockRequest.id,
+          candidate: {
+            candidate_request_id: 'cand-1',
+            candidate_display_name: 'Aditya Patil',
+            candidate_pickup: mockRequest.pickup,
+            candidate_destination: mockRequest.destination,
+            seats_requested: 1,
+            pickup_distance_meters: 100,
+            destination_distance_meters: 150,
+            shared_departure_window_start: mockRequest.departure_earliest,
+            shared_departure_window_end: mockRequest.departure_latest,
+            estimated_detour_minutes_target: 1.5,
+            estimated_detour_minutes_candidate: 1.0,
+            scores: { pickup_proximity_score: 0.95, destination_similarity_score: 0.9, departure_time_score: 1.0, route_detour_score: 0.85, composite_score: 0.92 },
+          },
+          ordered_stops: [
+            { sequence: 1, stop_type: 'PICKUP', location: mockRequest.pickup, passenger_request_id: mockRequest.id },
+            { sequence: 2, stop_type: 'PICKUP', location: mockRequest.pickup, passenger_request_id: 'cand-1' },
+            { sequence: 3, stop_type: 'DROPOFF', location: mockRequest.destination, passenger_request_id: mockRequest.id },
+            { sequence: 4, stop_type: 'DROPOFF', location: mockRequest.destination, passenger_request_id: 'cand-1' },
+          ],
+          total_shared_distance_km: 9.1,
+          total_shared_duration_minutes: 18,
+          best_sequence: 'PA→PB→DA→DB',
+          is_route_approximate: false,
+          distance_is_approximate: false,
+          distance_source: 'provider_road_network_route',
+          routing_accuracy: 'road_network_duration_road_network_distance',
+          routing_notice: 'OSRM driving route',
+          compatibility_explanations: ['Pickups are close.'],
+          created_at: mockRequest.created_at,
+          route_geometry: {
+            type: 'LineString',
+            coordinates: [[72.8687, 19.0657], [72.875, 19.075], [72.906, 19.1176]],
+          },
+          route_legs: [
+            { sequence: 1, start_stop_id: mockRequest.id, end_stop_id: 'cand-1', start_label: 'BKC', end_label: 'BKC 2', distance_meters: 400, distance_km: 0.4, duration_seconds: 60, duration_minutes: 1 },
+            { sequence: 2, start_stop_id: 'cand-1', end_stop_id: mockRequest.id, start_label: 'BKC 2', end_label: 'Powai', distance_meters: 8000, distance_km: 8.0, duration_seconds: 900, duration_minutes: 15 },
+            { sequence: 3, start_stop_id: mockRequest.id, end_stop_id: 'cand-1', start_label: 'Powai', end_label: 'Powai 2', distance_meters: 700, distance_km: 0.7, duration_seconds: 120, duration_minutes: 2 },
+          ],
+        }],
+      });
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(await screen.findByText(/Route geometry ready \(3 points\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/9.1 km road route/i)).toBeInTheDocument();
+    });
+
+    it('allows on-demand loading of route geometry for proposals without it', async () => {
+      const initialProposal = {
+        proposal_id: 'prop-ondemand-2',
+        target_request_id: mockRequest.id,
+        candidate: {
+          candidate_request_id: 'cand-2',
+          candidate_display_name: 'Neha Gupta',
+          candidate_pickup: mockRequest.pickup,
+          candidate_destination: mockRequest.destination,
+          seats_requested: 1,
+          pickup_distance_meters: 300,
+          destination_distance_meters: 400,
+          shared_departure_window_start: mockRequest.departure_earliest,
+          shared_departure_window_end: mockRequest.departure_latest,
+          estimated_detour_minutes_target: 3.0,
+          estimated_detour_minutes_candidate: 2.5,
+          scores: { pickup_proximity_score: 0.8, destination_similarity_score: 0.8, departure_time_score: 0.9, route_detour_score: 0.75, composite_score: 0.81 },
+        },
+        ordered_stops: [
+          { sequence: 1, stop_type: 'PICKUP' as const, location: mockRequest.pickup, passenger_request_id: mockRequest.id },
+          { sequence: 2, stop_type: 'DROPOFF' as const, location: mockRequest.destination, passenger_request_id: mockRequest.id },
+        ],
+        total_shared_distance_km: 10.5,
+        total_shared_duration_minutes: 25,
+        best_sequence: 'PA→PB→DA→DB',
+        is_route_approximate: false,
+        distance_is_approximate: true,
+        distance_source: 'provider_matrix_table',
+        routing_accuracy: 'road_network_duration_road_network_distance',
+        routing_notice: 'Matrix estimates',
+        compatibility_explanations: ['Directionally compatible.'],
+        created_at: mockRequest.created_at,
+        route_geometry: null,
+      };
+
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
+        target_request_id: mockRequest.id,
+        total_candidates_found: 1,
+        proposals: [initialProposal],
+      });
+
+      vi.spyOn(rideRequestService, 'fetchMatchProposal').mockResolvedValue({
+        ...initialProposal,
+        route_geometry: {
+          type: 'LineString',
+          coordinates: [[72.8687, 19.0657], [72.906, 19.1176]],
+        },
+      });
+
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      const loadBtn = await screen.findByRole('button', { name: /Load route geometry/i });
+      expect(loadBtn).toBeInTheDocument();
+
+      fireEvent.click(loadBtn);
+      expect(await screen.findByText(/Route geometry ready \(2 points\)/i)).toBeInTheDocument();
+      expect(rideRequestService.fetchMatchProposal).toHaveBeenCalledWith(mockRequest.id, 'prop-ondemand-2');
+    });
+
     it('displays empty state when no compatible proposals are found', async () => {
       vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
         target_request_id: mockRequest.id,
