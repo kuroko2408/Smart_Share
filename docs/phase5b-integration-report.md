@@ -1,35 +1,55 @@
-# Phase 5B Fare Estimation — Integration Report
+# Phase 5B — Hosted End-to-End Verification Report
 
-## Matching/API integration
+**Verification date:** 2026-11-08
+**Result:** **CONDITIONAL PASS** — the hosted flow could not be completed because no authorized test-user credentials or eligible hosted requests were available. No reproducible implementation defect was established.
 
-Fare estimation is invoked from the existing `MatchProposal` response serializer. That serializer is used by match discovery and proposal detail, so the fare reflects the current proposal's route distance, including an enriched shared road route where available. It does not change candidate discovery, route choice, detour feasibility, request state, or match status.
+## Workflow performed
 
-The authenticated request owner receives:
+1. Inspected `frontend/.env.local` and `backend/.env` without printing values. Frontend Supabase URL and publishable key are configured. `VITE_API_BASE_URL` is unset, so the existing frontend default is `http://localhost:8000/api/v1`. Backend database, Supabase URL, JWKS URL, and issuer settings are configured. No test account email/password or authenticated session was configured.
+2. Started the FastAPI service against its configured development environment and the Vite frontend. Both started successfully.
+3. Requested `GET http://127.0.0.1:5173/` → **HTTP 200**. Requested `GET http://127.0.0.1:8000/health` → **HTTP 200**.
+4. Sent an unauthenticated `POST /api/v1/ride-requests/{id}/matches` → **HTTP 401** (`Authentication credentials were not provided`). No token was supplied or fabricated.
+5. Ran read-only checks against the configured hosted database: `PostGIS_Version()` succeeded; the exact candidate eligibility conditions (`ACTIVE`, departure not expired, and `expires_at` null or future) matched **0** rows; `alembic_version` was **`5b69062ab3ef`**.
+6. Executed the existing parameterized PostGIS candidate-discovery `SELECT` with a transient, non-persisted probe target and Mumbai coordinates. The query completed successfully and returned **0 candidates**. No user/ride row was inserted, updated, or deleted. With no actual stored active request, this does not verify candidate matching for a valid user request.
+7. Ran backend and frontend regressions. Existing ASGI matching-to-fare coverage verifies the proposal response contract and estimate generation, but uses test-injected auth, database results, and routing; it is not evidence of a live Supabase-authenticated request.
+8. Stopped both local development servers.
 
-- `fare_estimate.shared_journey`: pooled vehicle route fare, distance source, accuracy tier, surcharge status/range, and paise/rupee values.
-- `fare_estimate.your_solo_baseline`: only that owner's direct-route fare estimate with the same provenance and surcharge metadata.
-- `composite_accuracy`, tariff model/version, pulse strategy, excluded charges, and the no-meter-equivalence disclaimer.
+No passwords, access tokens, publishable keys, database URLs, personal user details, or raw database rows were included in the output or this report.
 
-The candidate's solo fare is not returned. No contribution, allocation, savings, or savings percentage is calculated or serialized. A schema inspection and API serialization test confirmed the Phase 5C fields are absent. Existing shared route, ordered stop sequence, candidate summary, and detour information remain in the response.
+## Checklist results
 
-The complete response object is created under the existing API response envelope. Discovery remains an on-demand result; no fare or proposal persistence was added. An unsupported route source or invalid fare input logs the proposal ID and exception type and returns a null fare estimate without turning a feasible match into an API error.
+| Section | Result | Evidence / limitation |
+|---|---|---|
+| **A. Authentication** | **PARTIAL — blocked** | Supabase client configuration is present. The running API rejects unauthenticated matching with HTTP 401. A real sign-in and valid JWT acceptance could not be tested because no authorized test account/session was supplied. |
+| **B. Hosted matching** | **PARTIAL — data blocked** | Hosted PostgreSQL/PostGIS connectivity and the actual candidate-discovery query were verified read-only. There are zero active, unexpired requests, so discovery returned no candidates. No two-user proposal was generated. |
+| **C. Fare estimation** | **PARTIAL — hosted path blocked** | The existing matching-to-fare ASGI integration test returns shared and viewer-owned solo estimates, route provenance, and disclaimer, with candidate solo fare and Phase 5C fields absent. No hosted match existed on which to verify these fields. |
+| **D. Frontend integration** | **PARTIAL — authenticated result unavailable** | Local Vite and API health returned HTTP 200; matching UI tests cover rendering, conditional ranges, loading/error/empty behavior. No authenticated browser session or hosted proposal was available to render live fare data. |
+| **E. Regression and safety** | **PASS** | Backend full suite and relevant authentication/matching/fare tests pass; frontend tests pass. Hosted revision is unchanged at `5b69062ab3ef`. All hosted SQL used was read-only; no migration or data modification occurred. |
 
-## Frontend integration
+## Sanitized test evidence
 
-The existing MatchResults workflow renders the shared journey and viewer-owned solo baseline estimate, selected pulse mode, each component's accuracy tier, conditional day/night range, exclusions, and estimate disclaimer. Road distance labels identify road-network routes; matrix and fallback distances are labelled as estimates. Loading, empty, and error behavior is retained from the existing matching workflow. The product still presents a proposal, not an accepted group.
+- Hosted DB: `HOSTED_DB_CONNECT=ok`, `POSTGIS_AVAILABLE=True`, `ACTIVE_ELIGIBLE_REQUEST_COUNT=0`.
+- Hosted candidate query: `HOSTED_POSTGIS_CANDIDATE_QUERY=executed`, `CANDIDATE_COUNT=0`; exact eligible request count is also 0.
+- Hosted schema marker: `HOSTED_ALEMBIC_REVISION=5b69062ab3ef`.
+- Local service checks: frontend HTTP 200; backend health HTTP 200; unauthenticated match-discovery HTTP 401.
+- Backend suite: `154 passed, 1 skipped`.
+- Relevant backend subset: `83 passed`.
+- Frontend suite: `7 files, 30 tests passed`.
 
-## Authentication and ownership
+## Defects and severity
 
-The API continues to use the existing verified Supabase JWT dependency and owned-active-request guard. The integration test sent an ASGI request through the real matching route with a test principal injected by the test harness. It verified the API response produced by matching and fare estimation, but did not verify the hosted Supabase JWT/JWKS exchange.
+No application defect was established. The blocking conditions are test-environment inputs: no authorized test-user credentials/session and no active, unexpired hosted ride requests. The zero-candidate result is consistent with the observed empty eligible dataset and is not evidence of a matching defect.
 
-## Database and migrations
+The installed npm 12.2.2 reports that Node 20.20.2 is outside its declared supported versions. Frontend tests and build pass; this is a tooling compatibility warning, not a confirmed Phase 5B defect.
 
-No database persistence is needed for fare configuration or quotes. The in-memory immutable tariff registry avoids a migration. No migration or hosted database operation was performed. The last revision visible in the checked-in migration source is `5b69062ab3ef`; this report does not assert a live hosted revision check.
+## Database and phase boundary
 
-## Hosted end-to-end status
+No migration was created or applied. No destructive or modifying database operation was run. No Phase 5C allocation, contribution, savings, consent, or disclosure work was started. Phase 6A was not started.
 
-**Not verified.** No authenticated development account credentials or account provisioning action were supplied for this implementation turn, and no live hosted workflow was run. In particular, we did not demonstrate browser sign-in, an actual ES256 JWT through the deployed/configured backend, two active requests from separate hosted users, PostGIS candidate discovery, or rendered results from the hosted database. No credentials were invented or exposed. A Product Owner/development operator must provide or provision two development accounts and authorize the hosted test window before this evidence can be collected.
+## Remaining action to complete hosted acceptance
 
-## Acceptance assessment
+An authorized operator must provision or identify two development Supabase users and create/authorize compatible active ride requests for them. Credentials or sessions must be supplied through an approved secure mechanism, not in this report. Then repeat the frontend sign-in, JWT-backed API call, hosted candidate match, and fare rendering steps.
 
-The implementation-level integration criterion is met in the deterministic ASGI test: a matching proposal returned by the existing pipeline contains a computed fare estimate and preserves the Phase 5C privacy boundary. Full hosted acceptance remains conditional on the live authenticated workflow described above.
+## Final verdict
+
+**CONDITIONAL PASS** — hosted dependencies and query execution are available, but no authorized users or eligible ride requests were available to complete the authenticated matching and fare display workflow. No implementation defect was found.

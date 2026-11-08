@@ -38,3 +38,13 @@ Frontend coverage verifies the matching UI shows estimates, the viewer's solo ba
 ## Testing limitation
 
 No live hosted account was used to validate Supabase sign-in, a real JWT through JWKS verification, hosted PostGIS candidate discovery, or browser-to-hosted-API behavior. This evidence is required before converting the conditional verdict to final PASS.
+
+## Hosted verification regression rerun — 2026-11-08
+
+| Command | Result | Time |
+|---|---:|---:|
+| `./.venv/bin/pytest -q` (from `backend/`) | 154 passed, 1 skipped | 10.91 s |
+| `./.venv/bin/pytest -q app/tests/test_auth.py app/tests/test_api_v1.py app/tests/test_matching_phase5a.py app/tests/test_fares.py` (from `backend/`) | 83 passed | 9.35 s |
+| `npm test` (from `frontend/`) | 7 files, 30 tests passed | 3.39 s Vitest duration |
+
+The backend and Vite development servers started. Local frontend HTTP returned 200, backend health returned 200, and unauthenticated match discovery returned 401. The hosted read-only PostGIS availability check and parameterized candidate query succeeded; the query returned zero candidates. A repeat count using all candidate eligibility predicates also returned zero. Hosted Alembic revision remained `5b69062ab3ef`. These checks do not replace valid-account end-to-end coverage: no authorized test login or hosted ride request was available. No migration or data write was performed.
