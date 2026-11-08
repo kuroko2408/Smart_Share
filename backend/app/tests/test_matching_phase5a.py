@@ -35,6 +35,15 @@ from app.routing.base import (
 from app.schemas.auth import AuthUser
 
 
+def _empty_consent_db() -> AsyncMock:
+    """Async session double returning an empty SQLAlchemy scalar result."""
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value = []
+    db.execute.return_value = result
+    return db
+
+
 class MockPhase5ARoutingProvider(RoutingProvider):
     """Controlled mock routing provider for testing Phase 5A decisions."""
 
@@ -525,7 +534,7 @@ async def test_get_proposal_detail_api_endpoint_ondemand_enrichment() -> None:
     prop2_id = _make_proposal_id(target_id, cand2_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1283,7 +1292,7 @@ async def test_proposal_detail_candidate_destination_edited() -> None:
     ]
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1339,7 +1348,7 @@ async def test_proposal_detail_candidate_pickup_edited_out_of_range() -> None:
     prop_id = _make_proposal_id(target_id, cand_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1437,7 +1446,7 @@ async def test_proposal_detail_candidate_cancelled() -> None:
     prop_id = _make_proposal_id(target_id, cand_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1492,7 +1501,7 @@ async def test_proposal_detail_candidate_expired() -> None:
     prop_id = _make_proposal_id(target_id, cand_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1567,7 +1576,7 @@ async def test_proposal_detail_candidate_infeasible_detour() -> None:
     ]
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1686,7 +1695,7 @@ async def test_proposal_detail_candidate_destination_moved_beyond_threshold() ->
     ]
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -1741,7 +1750,7 @@ async def test_proposal_detail_candidate_matched_returns_404() -> None:
     prop_id = _make_proposal_id(target_id, cand_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     # When candidate is MATCHED, DB candidate discovery query (WHERE status = 'ACTIVE') returns []
     with (
@@ -1797,7 +1806,7 @@ async def test_proposal_detail_candidate_completed_returns_404() -> None:
     prop_id = _make_proposal_id(target_id, cand_id)
 
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     # When candidate is COMPLETED, DB query returns []
     with (
@@ -2000,7 +2009,7 @@ async def test_match_discovery_api_includes_viewer_scoped_fare_estimate() -> Non
         id=user_id, email="test@smartshare.in", role="authenticated", user_metadata={}
     )
     app.dependency_overrides[get_current_user] = lambda: auth_user
-    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    app.dependency_overrides[get_db] = lambda: _empty_consent_db()
 
     with (
         patch(
@@ -2032,10 +2041,13 @@ async def test_match_discovery_api_includes_viewer_scoped_fare_estimate() -> Non
     assert not any(
         forbidden in serialized_proposal
         for forbidden in (
-            "contribution",
-            "allocated_fare",
-            "savings",
+            "your_contribution_paise",
+            "co_passenger_contribution_paise",
+            "your_savings_paise",
+            "co_passenger_savings",
             "co_passenger_solo",
         )
     )
+    assert payload["fare_allocation_disclosure"]["allocation"] is None
+    assert payload["fare_allocation_disclosure"]["exact_disclosure_available"] is False
     assert list(payload["passenger_metrics"]) == [str(target_id)]

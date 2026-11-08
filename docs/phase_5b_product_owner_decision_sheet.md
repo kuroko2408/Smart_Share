@@ -1,8 +1,8 @@
 # Smart Share — Phase 5B/5C Product Owner Decision Sheet
 
 **Prepared:** 8 November 2026
-**Purpose:** Record the F-01 policy direction, request final approval for DEC-013, and confirm implementation sequencing.
-**Status:** F-01 decision recorded. DEC-013 awaits explicit final Product Owner approval. No implementation is authorized by this sheet.
+**Purpose:** Record the F-01 policy direction, DEC-013 approval, and implementation sequencing.
+**Status:** F-01 recorded; DEC-013 approved by Product Owner on 2026-11-08. Phase 5C implementation is authorized by the subsequent Phase 5C implementation request.
 
 ## 1. F-01 — Pre-trip fare calculation and physical meter behavior
 
@@ -17,7 +17,7 @@
 
 ## 2. DEC-013 — Exact co-passenger contribution disclosure
 
-### Proposed decision for final approval
+### Approved Product Owner decision
 
 Approve exact proportional co-passenger contribution display for shared-cost transparency, subject to the disclosure and consent controls below. This policy has a residual economic-privacy risk: given a viewer’s own solo baseline fare and exact share, the viewer can algebraically infer the co-passenger’s solo baseline from the exact contribution (approximately `F_B = F_A × S_B / S_A`). The audit example estimates the inference to within about two paise. Consent informs participants about this risk; it does not eliminate it.
 
@@ -33,17 +33,9 @@ Approve exact proportional co-passenger contribution display for shared-cost tra
 
 Use bucketed contributions, initially proposed as nearest ₹10, as a lower-precision policy. Bucketing alone does not guarantee privacy: an exact shared total combined with an exact own share reconstructs the hidden contribution. Any bucketed contract must review and, where necessary, coarsen or withhold linked amounts while preserving understandable cost accounting. Do not claim that bucketing eliminates inference.
 
-### Product Owner approval
+**Decision:** Approve exact disclosure with bilateral consent and inference notice.
 
-Select one:
-
-- [ ] **Approve DEC-013 exact disclosure**, subject to all transparency, bilateral-consent, redaction, and auditability controls above.
-- [ ] **Reject exact disclosure; use the bucketed alternative**, subject to a revised wire contract that evaluates reconstruction through linked totals and shares.
-- [ ] **Defer/revise.** Phase 5C exact or bucketed contribution display remains blocked until the policy is resolved.
-
-**Product Owner / approver:** ______________________________
-**Date:** __________________
-**Comments or conditions:** _______________________________________________
+**Approval recorded:** 2026-11-08, via the Product Owner's explicit answer. Exact display remains unavailable until both participants separately consent to the current notice. The approved controls and redactions remain mandatory.
 
 ## 3. Remaining risks
 
@@ -52,11 +44,11 @@ Select one:
 - Exact contribution disclosure leaves residual solo-baseline inference risk even after informed consent.
 - Candidate/shared itinerary information may support location or travel-pattern inference; private solo route details and economics must remain redacted.
 - A bucketed fallback reduces displayed precision but may be algebraically defeated by exact linked amounts.
-- Consent must be available to both participants and reliably enforced by the API; consent records require an auditable mechanism whose schema impact is not yet determined.
+- Consent must be available to both participants and reliably enforced by the API. Phase 5C implements append-only consent events in a justified additive migration; applying that migration to a hosted database remains an environment-specific deployment step.
 
 ## 4. Phase 5B implementation acceptance criteria
 
-Phase 5B was authorized for implementation on 2026-11-08. It is limited to fare estimation and does not implement cost allocation disclosure. The implementation report records a conditional result because the live hosted workflow remains unverified.
+Phase 5B was authorized for implementation on 2026-11-08. It is limited to fare estimation; Phase 5C adds allocation/disclosure under the separately approved decision below. The Phase 5B report records a conditional result because the live hosted workflow remains unverified.
 
 1. A versioned fare model calculates configured shared-journey and solo-baseline estimates from validated Phase 5A normalized route metrics.
 2. Continuous Linear Integration is the default for pre-trip estimates. Other pulse modes may remain configurable for comparison, but no mode may be described as verified physical meter behavior without authoritative evidence.
@@ -73,15 +65,15 @@ Phase 5B was authorized for implementation on 2026-11-08. It is limited to fare 
 
 ### Phase 5C — Fare allocation and savings
 
-The Phase 5A design names Phase 5C as proportional distance/time cost sharing and passenger savings. It depends on Phase 5A's normalized route metrics and Phase 5B's accepted shared and solo-baseline fare outputs. The allocator's mathematical unit tests and contract design can be prepared independently; the integrated implementation should follow completion and acceptance of Phase 5B so it consumes stable fare semantics and provenance. Exact contribution output is blocked on DEC-013. Phase 5C acceptance must include sum conservation, fairness/dissavings behavior, per-viewer privacy, consent enforcement, and the approved exact or bucketed response policy.
+The Phase 5A routing architecture names Phase 5C as allocation scope; DEC-008 in this decision register and Sections 9–12 of the Phase 5B design define its authoritative formula and privacy contract. It consumes Phase 5A normalized routing outputs through Phase 5B fare estimates. The fare-output contract is implemented and stable, while Phase 5B hosted acceptance remains pending. DEC-013 is approved for exact contribution output only with bilateral consent. Phase 5C acceptance includes sum conservation, fairness/dissavings behavior, per-viewer privacy, consent enforcement, and hosted integration evidence.
 
 ### Phase 6A — Fare estimate, allocation, and consent UX
 
-No Phase 6A definition existed in the repository. The roadmap now proposes Phase 6A for frontend presentation of estimates, allocation, transparency notices, and consent controls. It depends on stable Phase 5B/5C API contracts and final DEC-013 resolution. UI layout/design can proceed earlier, but API-backed implementation and acceptance should follow those dependencies.
+No Phase 6A definition existed in the repository before the roadmap amendment. Phase 6A covers broader frontend presentation of estimates, allocation, transparency notices, and consent controls. It depends on stable Phase 5B/5C API contracts; DEC-013 is now resolved. UI/API-backed acceptance should follow Phase 5C API acceptance. The minimal consent controls required to gate Phase 5C output are included in Phase 5C implementation.
 
 ### Recommended sequence
 
-**Phase 5A (complete) → Phase 5B fare-estimation implementation (implemented; hosted acceptance pending) → Phase 5B acceptance → Phase 5C allocation implementation after DEC-013 approval → Phase 6A integrated fare/consent UX → integration and regression acceptance.** Phase 5C may prepare independent design or isolated mathematical tests, but should not be treated as complete or integrated before Phase 5B outputs are accepted. Phase 6A must not display exact contribution data before DEC-013 consent behavior is approved and implemented.
+**Phase 5A (complete) → Phase 5B estimator contract (implemented; hosted acceptance pending) → Phase 5C allocation implementation (authorized after DEC-013 approval; hosted acceptance pending) → Phase 6A broader integrated fare/consent UX → end-to-end regression acceptance.** Phase 5C can be implemented against the stable existing fare contract, but deployment acceptance remains contingent on hosted migration and integration evidence. Phase 6A must use the bilateral consent behavior and never bypass it.
 
 ## 6. Related documents updated
 
@@ -92,4 +84,4 @@ No Phase 6A definition existed in the repository. The roadmap now proposes Phase
 - [Revised Phase 5B pre-implementation audit](phase_5b_final_pre_implementation_audit.md)
 - [Project roadmap](05-roadmap.md)
 
-**Implementation authorization:** Granted by the Product Owner on 2026-11-08 for Phase 5B only. Phase 5B implementation is reported as CONDITIONAL PASS pending hosted authenticated end-to-end verification. No Phase 5C or Phase 6A implementation was authorized or started.
+**Implementation authorization:** Phase 5B was authorized on 2026-11-08; DEC-013 exact disclosure was approved on 2026-11-08 subject to bilateral consent; Phase 5C was subsequently authorized by the Product Owner. Phase 6A remains outside the present implementation.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Loader2, Route, Search, X } from 'lucide-react';
-import { fetchMatchProposal, findRideMatches } from '@/services/ride-requests';
+import { fetchMatchProposal, findRideMatches, grantFareDisclosureConsent, withdrawFareDisclosureConsent } from '@/services/ride-requests';
 import type { MatchProposal } from '@/types/matching';
 import type { RideRequestResponse } from '@/types/ride-request';
 
@@ -31,6 +31,24 @@ export function MatchResults({
   const [selected, setSelected] = useState<MatchProposal | null>(null);
   const [proposalsMap, setProposalsMap] = useState<Record<string, MatchProposal>>({});
   const [loadingGeometryId, setLoadingGeometryId] = useState<string | null>(null);
+  const [declinedConsentIds, setDeclinedConsentIds] = useState<string[]>([]);
+
+  const consentMutation = useMutation({
+    mutationFn: async ({ proposal, withdraw }: { proposal: MatchProposal; withdraw: boolean }) => {
+      if (withdraw) {
+        await withdrawFareDisclosureConsent(request.id, proposal.proposal_id);
+      } else {
+        const version = proposal.fare_allocation_disclosure?.consent_text_version;
+        if (!version) throw new Error('The current disclosure notice is unavailable. Refresh the proposal.');
+        await grantFareDisclosureConsent(request.id, proposal.proposal_id, version);
+      }
+      return fetchMatchProposal(request.id, proposal.proposal_id);
+    },
+    onSuccess: (proposal) => {
+      setProposalsMap((prev) => ({ ...prev, [proposal.proposal_id]: proposal }));
+      setSelected((current) => current?.proposal_id === proposal.proposal_id ? proposal : current);
+    },
+  });
 
   const discovery = useMutation({
     mutationFn: () => findRideMatches(request.id),
@@ -163,8 +181,8 @@ export function MatchResults({
                 {proposal.fare_estimate ? <section className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3" aria-label="Pre-trip fare estimate">
                   <p className="text-xs font-semibold text-gray-800">Estimated pre-trip fare</p>
                   <div className="mt-1 grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
-                    <p>Shared journey: <strong>{formatRupees(proposal.fare_estimate.shared_journey.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.shared_journey.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
-                    <p>Your solo baseline: <strong>{formatRupees(proposal.fare_estimate.your_solo_baseline.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.your_solo_baseline.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
+                    <p>Total shared taxi trip estimate: <strong>{formatRupees(proposal.fare_estimate.shared_journey.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.shared_journey.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
+                    <p>Your separate solo trip estimate: <strong>{formatRupees(proposal.fare_estimate.your_solo_baseline.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.your_solo_baseline.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
                   </div>
                   {proposal.fare_estimate.shared_journey.surcharge_status === 'CONDITIONAL' && proposal.fare_estimate.shared_journey.fare_range && (
                     <p className="mt-1 text-xs text-amber-800">
@@ -179,8 +197,73 @@ export function MatchResults({
                   <p className="mt-1 text-[11px] text-gray-600">
                     {proposal.fare_estimate.pulse_quantization_mode} estimate · accuracy: {proposal.fare_estimate.composite_accuracy.replaceAll('_', ' ').toLowerCase()}
                   </p>
+                  <p className="mt-1 text-[11px] text-gray-600">The shared fare is the full taxi trip estimate; it is not an individual passenger's contribution.</p>
                   <p className="mt-1 text-[11px] text-gray-600">{proposal.fare_estimate.disclaimer}</p>
                 </section> : <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Fare estimate is unavailable for this route. The match suggestion remains available with its routing accuracy shown above.</p>}
+
+                {proposal.economic_assessment && (
+                  <section
+                    aria-label="Economic comparison"
+                    className={`mt-2 rounded-lg border p-3 text-xs ${
+                      proposal.economic_assessment.classification === 'NEGATIVE'
+                        ? 'border-amber-300 bg-amber-50 text-amber-900'
+                        : proposal.economic_assessment.classification === 'POSITIVE'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                          : 'border-gray-200 bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <p className="font-semibold">
+                      {proposal.economic_assessment.classification === 'NEGATIVE'
+                        ? 'Not a money-saving option'
+                        : proposal.economic_assessment.classification === 'POSITIVE'
+                          ? 'Estimated lower combined cost'
+                          : proposal.economic_assessment.classification === 'CONDITIONAL'
+                            ? 'Cost comparison depends on the tariff window'
+                            : 'Estimated break-even'}
+                    </p>
+                    <p className="mt-1">{proposal.economic_assessment.message}</p>
+                  </section>
+                )}
+
+                {proposal.fare_allocation_disclosure && (
+                  <section className="mt-2 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700" aria-label="Fare contribution disclosure">
+                    <p className="font-semibold text-gray-900">Optional exact contribution disclosure</p>
+                    <p className="mt-1">{proposal.fare_allocation_disclosure.consent_notice}</p>
+                    <p className="mt-1">This is separate consent for sharing the exact contribution with the other passenger. It does not accept the ride.</p>
+                    {proposal.fare_allocation_disclosure.exact_disclosure_available && proposal.fare_allocation_disclosure.allocation ? (
+                      <div className="mt-2 rounded bg-emerald-50 p-2 text-emerald-900">
+                        <p>Total shared taxi trip estimate: <strong>{formatRupees(proposal.fare_allocation_disclosure.allocation.shared_total)}</strong></p>
+                        <p>Your share of that estimate: <strong>{formatRupees(proposal.fare_allocation_disclosure.allocation.your_contribution)}</strong></p>
+                        <p>Other passenger's share: <strong>{formatRupees(proposal.fare_allocation_disclosure.allocation.co_passenger_contribution)}</strong></p>
+                        <p>Your estimated savings versus your separate trip: <strong>{formatRupees(proposal.fare_allocation_disclosure.allocation.your_savings)} ({Number(proposal.fare_allocation_disclosure.allocation.your_savings_percent).toFixed(2)}%)</strong></p>
+                        <p className="mt-1 text-[11px]">Only your own solo baseline and savings are shown. The other passenger’s solo baseline and savings remain private.</p>
+                        <button type="button" onClick={() => consentMutation.mutate({ proposal, withdraw: true })} disabled={consentMutation.isPending} className="mt-2 font-semibold underline disabled:opacity-50">Withdraw my consent</button>
+                      </div>
+                    ) : proposal.fare_allocation_disclosure.exact_disclosure_available && (proposal.fare_allocation_disclosure.conditional_scenarios?.length ?? 0) > 0 ? (
+                      <div className="mt-2 space-y-2 rounded bg-amber-50 p-2 text-amber-950">
+                        <p className="font-semibold">Contributions depend on the tariff time</p>
+                        {proposal.fare_allocation_disclosure.conditional_scenarios?.map((scenario) => (
+                          <div key={scenario.tariff_period} className="rounded border border-amber-200 bg-white p-2">
+                            <p className="font-semibold">{scenario.tariff_period === 'DAY' ? 'Day tariff' : 'Night tariff'} · {scenario.economic_classification === 'POSITIVE' ? 'lower estimated total' : scenario.economic_classification === 'NEGATIVE' ? 'higher estimated total' : 'approximately break-even'}</p>
+                            <p>Shared taxi estimate: {formatRupees(scenario.shared_total)}</p>
+                            <p>Your contribution: {formatRupees(scenario.your_contribution)} · Other passenger: {formatRupees(scenario.co_passenger_contribution)}</p>
+                            <p>Your estimated savings versus your separate trip: {formatRupees(scenario.your_savings)} ({Number(scenario.your_savings_percent).toFixed(2)}%)</p>
+                          </div>
+                        ))}
+                        <p className="text-[11px]">Only your own solo baseline and savings are shown. The other passenger’s solo baseline and savings remain private.</p>
+                        <button type="button" onClick={() => consentMutation.mutate({ proposal, withdraw: true })} disabled={consentMutation.isPending} className="mt-1 font-semibold underline disabled:opacity-50">Withdraw my consent</button>
+                      </div>
+                    ) : (
+                      <div className="mt-2">
+                        <p>{proposal.fare_allocation_disclosure.your_consent_active ? 'Your consent is recorded.' : declinedConsentIds.includes(proposal.proposal_id) ? 'You chose not to consent in this view. Exact contribution amounts remain hidden.' : 'Your consent has not been given.'} {proposal.fare_allocation_disclosure.co_passenger_consent_active ? 'The other passenger has consented.' : 'The other passenger must also consent before exact amounts are shown.'}</p>
+                        {!proposal.fare_allocation_disclosure.your_consent_active && !declinedConsentIds.includes(proposal.proposal_id) && <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => consentMutation.mutate({ proposal, withdraw: false })} disabled={consentMutation.isPending} className="rounded bg-indigo-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50">{consentMutation.isPending ? 'Recording…' : 'I agree to exact disclosure'}</button><button type="button" onClick={() => setDeclinedConsentIds((ids) => [...ids, proposal.proposal_id])} className="rounded border border-gray-300 px-3 py-1.5 font-semibold text-gray-700">No thanks</button></div>}
+                        {declinedConsentIds.includes(proposal.proposal_id) && <button type="button" onClick={() => setDeclinedConsentIds((ids) => ids.filter((id) => id !== proposal.proposal_id))} className="mt-2 font-semibold text-indigo-700 underline">Review consent notice</button>}
+                        {proposal.fare_allocation_disclosure.your_consent_active && <button type="button" onClick={() => consentMutation.mutate({ proposal, withdraw: true })} disabled={consentMutation.isPending} className="mt-2 font-semibold text-indigo-700 underline disabled:opacity-50">Withdraw my consent</button>}
+                        {consentMutation.isError && <p role="alert" className="mt-2 text-red-700">{consentMutation.error.message}</p>}
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {selected?.proposal_id === proposal.proposal_id && (
                   <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-700">

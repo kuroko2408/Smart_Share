@@ -111,6 +111,12 @@ def test_pairwise_precedence_has_exactly_six_valid_orders() -> None:
     assert len(valid) == 6
     assert all(order.index(0) < order.index(2) for order in valid)
     assert all(order.index(1) < order.index(3) for order in valid)
+    shared_segment_orders = [
+        order
+        for order in valid
+        if max(order.index(0), order.index(1)) < min(order.index(2), order.index(3))
+    ]
+    assert len(shared_segment_orders) == 4
 
 
 class MatrixRoutingProvider(RoutingProvider):
@@ -148,6 +154,66 @@ async def test_detour_evaluator_can_choose_candidate_first_stop_order() -> None:
     assert max(sequence.index("PA"), sequence.index("PB")) < min(
         sequence.index("DA"), sequence.index("DB")
     )
+
+
+class CoordinateSensitiveProvider(RoutingProvider):
+    def __init__(self):
+        self.calls: list[list[tuple[float, float]]] = []
+
+    async def get_duration_matrix(self, points):
+        from app.matching.geometry import haversine_distance
+
+        self.calls.append(list(points))
+        return [
+            [
+                0.0 if i == j else haversine_distance(*points[i], *points[j]) / 8.0
+                for j in range(len(points))
+            ]
+            for i in range(len(points))
+        ]
+
+
+@pytest.mark.asyncio
+async def test_shared_route_uses_both_pickups_and_destinations_without_coordinate_reuse():
+    provider = CoordinateSensitiveProvider()
+    pickup_a = (19.0657, 72.8687)
+    pickup_b = (19.0660, 72.8690)
+    dest_a = (19.1176, 72.9060)
+    dest_b_first = (19.1180, 72.9065)
+    dest_b_changed = (19.1300, 72.9200)
+
+    first = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pickup_a,
+        dest_a=dest_a,
+        pickup_b=pickup_b,
+        dest_b=dest_b_first,
+        max_extra_a=10_000,
+        max_extra_b=10_000,
+    )
+    second = await evaluate_pairwise_detour(
+        provider=provider,
+        pickup_a=pickup_a,
+        dest_a=dest_a,
+        pickup_b=pickup_b,
+        dest_b=dest_b_changed,
+        max_extra_a=10_000,
+        max_extra_b=10_000,
+    )
+
+    assert first is not None and second is not None
+    assert provider.calls == [
+        [pickup_a, pickup_b, dest_a, dest_b_first],
+        [pickup_a, pickup_b, dest_a, dest_b_changed],
+    ]
+    assert (
+        first.best_sequence.distance_total_meters
+        != second.best_sequence.distance_total_meters
+    )
+    assert first.distance_direct_a_meters == pytest.approx(
+        second.distance_direct_a_meters
+    )
+    assert first.distance_direct_b_meters != second.distance_direct_b_meters
 
 
 class ImpossibleDetourProvider(MatrixRoutingProvider):

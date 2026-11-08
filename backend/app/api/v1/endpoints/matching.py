@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,6 +20,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db as get_db_session
+from app.fares.allocation import assess_match_economics
+from app.fares.consent import (
+    ProposalConsentState,
+    load_proposal_consent_states,
+    record_consent_event,
+)
+from app.fares.disclosure import (
+    CONSENT_NOTICE,
+    CONSENT_TEXT_VERSION,
+    disclosure_subject_fingerprint,
+)
 from app.fares.models import FareComponentEstimate, MatchFareEstimate
 from app.fares.service import estimate_match_fare
 from app.matching.service import (
@@ -32,11 +44,16 @@ from app.schemas.auth import AuthUser
 from app.schemas.common import DataResponse
 from app.schemas.matching import (
     ConditionalFareRangeSchema,
+    EconomicAssessmentSchema,
+    FareAllocationDisclosureSchema,
+    FareAllocationScenarioSchema,
+    FareAllocationSchema,
     FareAmountSchema,
     FareComponentSchema,
     GeoJSONLineStringSchema,
     LocationPointSchema,
     MatchCandidateSummarySchema,
+    MatchDisclosureConsentRequest,
     MatchFareEstimateSchema,
     MatchListResponseSchema,
     MatchProposalSchema,
@@ -50,6 +67,7 @@ router = APIRouter(prefix="/ride-requests", tags=["matching"])
 proposal_router = APIRouter(prefix="/matches", tags=["matching"])
 
 logger = logging.getLogger(__name__)
+_UNSET = object()
 
 
 def _fare_disclaimer(mode: str) -> str:
@@ -146,10 +164,103 @@ async def _get_active_owned_request(
     return request
 
 
-def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
+def _allocation_disclosure_to_schema(
+    proposal: MatchProposal,
+    fares: MatchFareEstimate,
+    consent: ProposalConsentState,
+) -> FareAllocationDisclosureSchema:
+    viewer_consented = consent.by_request.get(proposal.target_request_id, False)
+    co_passenger_consented = consent.by_request.get(
+        proposal.candidate_request_id, False
+    )
+    allocation_schema = None
+    scenario_schemas: list[FareAllocationScenarioSchema] = []
+    if viewer_consented and co_passenger_consented:
+        allocation, assessment = assess_match_economics(
+            fares, minimum_fare_paise=fares.minimum_fare_paise
+        )
+
+        def orient(passenger_a, passenger_b):
+            return (
+                (passenger_a, passenger_b)
+                if fares.viewer_is_canonical_passenger_a
+                else (passenger_b, passenger_a)
+            )
+
+        def to_scenario(tariff_period: str, scenario_allocation):
+            viewer, other = orient(
+                scenario_allocation.passenger_a,
+                scenario_allocation.passenger_b,
+            )
+            return FareAllocationScenarioSchema(
+                tariff_period=tariff_period,
+                economic_classification=scenario_allocation.classification.value,
+                shared_total=float(scenario_allocation.shared_total),
+                shared_total_paise=int(scenario_allocation.shared_total * 100),
+                your_contribution=float(viewer.contribution),
+                your_contribution_paise=int(viewer.contribution * 100),
+                co_passenger_contribution=float(other.contribution),
+                co_passenger_contribution_paise=int(other.contribution * 100),
+                your_savings=float(viewer.savings),
+                your_savings_paise=int(viewer.savings * 100),
+                your_savings_percent=viewer.savings_percent,
+            )
+
+        if assessment.scenarios:
+            scenario_schemas = [
+                to_scenario(scenario.tariff_period, scenario.allocation)
+                for scenario in assessment.scenarios
+            ]
+        else:
+            viewer, other = orient(allocation.passenger_a, allocation.passenger_b)
+            allocation_schema = FareAllocationSchema(
+                policy="PROPORTIONAL_TO_SOLO_BASELINE",
+                shared_total=float(allocation.shared_total),
+                shared_total_paise=int(allocation.shared_total * 100),
+                your_contribution=float(viewer.contribution),
+                your_contribution_paise=int(viewer.contribution * 100),
+                co_passenger_contribution=float(other.contribution),
+                co_passenger_contribution_paise=int(other.contribution * 100),
+                your_savings=float(viewer.savings),
+                your_savings_paise=int(viewer.savings * 100),
+                your_savings_percent=viewer.savings_percent,
+            )
+    return FareAllocationDisclosureSchema(
+        consent_text_version=CONSENT_TEXT_VERSION,
+        consent_notice=CONSENT_NOTICE,
+        your_consent_active=viewer_consented,
+        co_passenger_consent_active=co_passenger_consented,
+        exact_disclosure_available=allocation_schema is not None
+        or bool(scenario_schemas),
+        allocation=allocation_schema,
+        conditional_scenarios=scenario_schemas,
+    )
+
+
+def _proposal_to_schema(
+    p: MatchProposal,
+    *,
+    fare_domain: MatchFareEstimate | None | object = _UNSET,
+    consent_state: ProposalConsentState | None = None,
+) -> MatchProposalSchema:
     """Convert internal MatchProposal dataclass to Pydantic response schema."""
+    economic_assessment = None
+    disclosure = None
     try:
-        fare_estimate = _fare_to_schema(estimate_match_fare(p))
+        if fare_domain is _UNSET:
+            fare_domain = estimate_match_fare(p)
+        if fare_domain is None:
+            raise ValueError("Fare estimate is unavailable")
+        fare_estimate = _fare_to_schema(fare_domain)
+        _, assessment = assess_match_economics(
+            fare_domain, minimum_fare_paise=fare_domain.minimum_fare_paise
+        )
+        economic_assessment = EconomicAssessmentSchema(
+            classification=assessment.classification.value,
+            message=assessment.message,
+        )
+        if consent_state is not None:
+            disclosure = _allocation_disclosure_to_schema(p, fare_domain, consent_state)
     except (ValueError, LookupError, ArithmeticError) as exc:
         # Fare estimation is informative and must not turn a feasible match into an API failure.
         logger.warning(
@@ -273,6 +384,90 @@ def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
         route_legs=route_legs,
         passenger_metrics=passenger_metrics,
         fare_estimate=fare_estimate,
+        economic_assessment=economic_assessment,
+        fare_allocation_disclosure=disclosure,
+    )
+
+
+async def _serialize_proposals(
+    db: AsyncSession, proposals: Sequence[MatchProposal]
+) -> list[MatchProposalSchema]:
+    if not proposals:
+        return []
+    fare_domains: dict[uuid.UUID, MatchFareEstimate | None] = {}
+    subjects: dict[uuid.UUID, tuple[uuid.UUID, uuid.UUID, str]] = {}
+    for proposal in proposals:
+        try:
+            fares = estimate_match_fare(proposal)
+        except (ValueError, LookupError, ArithmeticError) as exc:
+            logger.warning(
+                "Fare estimate unavailable for proposal %s (%s)",
+                proposal.proposal_id,
+                type(exc).__name__,
+            )
+            fare_domains[proposal.proposal_id] = None
+            continue
+        fare_domains[proposal.proposal_id] = fares
+        subjects[proposal.proposal_id] = (
+            proposal.target_request_id,
+            proposal.candidate_request_id,
+            disclosure_subject_fingerprint(fares),
+        )
+    consent_states = await load_proposal_consent_states(db, subjects)
+    return [
+        _proposal_to_schema(
+            proposal,
+            fare_domain=fare_domains[proposal.proposal_id],
+            consent_state=consent_states.get(proposal.proposal_id),
+        )
+        for proposal in proposals
+    ]
+
+
+async def _find_current_owned_proposal(
+    proposal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    db: AsyncSession,
+    current_user: AuthUser,
+) -> MatchProposal:
+    target = await _get_active_owned_request(request_id, db, current_user)
+    routing = get_routing_provider()
+    proposals = await run_matching(db, routing, target)
+    for proposal in proposals:
+        if proposal.proposal_id == proposal_id:
+            if proposal.route_geometry is None:
+                enriched = await enrich_proposal_geometry(proposal, routing)
+                if enriched is None:
+                    break
+                proposal = enriched
+            return proposal
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Proposal not found or no longer valid.",
+    )
+
+
+async def _consent_state_for_proposal(
+    db: AsyncSession, proposal: MatchProposal, fares: MatchFareEstimate
+) -> ProposalConsentState:
+    states = await load_proposal_consent_states(
+        db,
+        {
+            proposal.proposal_id: (
+                proposal.target_request_id,
+                proposal.candidate_request_id,
+                disclosure_subject_fingerprint(fares),
+            )
+        },
+    )
+    return states.get(
+        proposal.proposal_id,
+        ProposalConsentState(
+            by_request={
+                proposal.target_request_id: False,
+                proposal.candidate_request_id: False,
+            }
+        ),
     )
 
 
@@ -289,7 +484,7 @@ async def _run_and_respond(
         data=MatchListResponseSchema(
             target_request_id=request_id,
             total_candidates_found=len(proposals),
-            proposals=[_proposal_to_schema(p) for p in proposals],
+            proposals=await _serialize_proposals(db, proposals),
         ),
         message="Matching suggestions generated successfully",
     )
@@ -363,11 +558,100 @@ async def get_proposal_detail(
                         detail="Proposal not found or no longer valid.",
                     )
                 p = enriched
+            serialized = (await _serialize_proposals(db, [p]))[0]
             return DataResponse(
-                data=_proposal_to_schema(p),
+                data=serialized,
                 message="Match proposal retrieved successfully",
             )
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Proposal not found or no longer valid.",
+    )
+
+
+@proposal_router.post(
+    "/{proposal_id}/disclosure-consent",
+    response_model=DataResponse[FareAllocationDisclosureSchema],
+    summary="Affirm exact fare disclosure consent for a match proposal",
+)
+async def grant_exact_disclosure_consent(
+    proposal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    body: MatchDisclosureConsentRequest,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> DataResponse[FareAllocationDisclosureSchema]:
+    if body.consent_text_version != CONSENT_TEXT_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Consent notice version is no longer current. Review the latest notice.",
+        )
+    proposal = await _find_current_owned_proposal(
+        proposal_id, request_id, db, current_user
+    )
+    try:
+        fares = estimate_match_fare(proposal)
+    except (ValueError, LookupError, ArithmeticError) as exc:
+        logger.warning(
+            "Cannot record disclosure consent for proposal %s (%s)",
+            proposal_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Fare estimate is unavailable for this proposal.",
+        ) from exc
+    await record_consent_event(
+        db,
+        proposal_id=proposal_id,
+        participant_request_id=request_id,
+        participant_user_id=current_user.id,
+        subject_fingerprint=disclosure_subject_fingerprint(fares),
+        action="GRANTED",
+    )
+    state = await _consent_state_for_proposal(db, proposal, fares)
+    return DataResponse(
+        data=_allocation_disclosure_to_schema(proposal, fares, state),
+        message="Your exact disclosure consent has been recorded.",
+    )
+
+
+@proposal_router.delete(
+    "/{proposal_id}/disclosure-consent",
+    response_model=DataResponse[FareAllocationDisclosureSchema],
+    summary="Withdraw exact fare disclosure consent for a match proposal",
+)
+async def withdraw_exact_disclosure_consent(
+    proposal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> DataResponse[FareAllocationDisclosureSchema]:
+    proposal = await _find_current_owned_proposal(
+        proposal_id, request_id, db, current_user
+    )
+    try:
+        fares = estimate_match_fare(proposal)
+    except (ValueError, LookupError, ArithmeticError) as exc:
+        logger.warning(
+            "Cannot process disclosure consent withdrawal for proposal %s (%s)",
+            proposal_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Fare estimate is unavailable for this proposal.",
+        ) from exc
+    await record_consent_event(
+        db,
+        proposal_id=proposal_id,
+        participant_request_id=request_id,
+        participant_user_id=current_user.id,
+        subject_fingerprint=disclosure_subject_fingerprint(fares),
+        action="REVOKED",
+    )
+    state = await _consent_state_for_proposal(db, proposal, fares)
+    return DataResponse(
+        data=_allocation_disclosure_to_schema(proposal, fares, state),
+        message="Your exact disclosure consent has been withdrawn.",
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -112,6 +113,55 @@ class MatchFareEstimateSchema(BaseModel):
     disclaimer: str
 
 
+class EconomicAssessmentSchema(BaseModel):
+    classification: Literal["POSITIVE", "BREAK_EVEN", "NEGATIVE", "CONDITIONAL"]
+    message: str
+
+
+class FareAllocationSchema(BaseModel):
+    policy: Literal["PROPORTIONAL_TO_SOLO_BASELINE"]
+    shared_total: float
+    shared_total_paise: int
+    your_contribution: float
+    your_contribution_paise: int
+    co_passenger_contribution: float
+    co_passenger_contribution_paise: int
+    your_savings: float
+    your_savings_paise: int
+    your_savings_percent: Decimal
+
+
+class FareAllocationScenarioSchema(BaseModel):
+    tariff_period: Literal["DAY", "NIGHT"]
+    economic_classification: Literal["POSITIVE", "BREAK_EVEN", "NEGATIVE"]
+    shared_total: float
+    shared_total_paise: int
+    your_contribution: float
+    your_contribution_paise: int
+    co_passenger_contribution: float
+    co_passenger_contribution_paise: int
+    your_savings: float
+    your_savings_paise: int
+    your_savings_percent: Decimal
+
+
+class FareAllocationDisclosureSchema(BaseModel):
+    consent_text_version: str
+    consent_notice: str
+    your_consent_active: bool
+    co_passenger_consent_active: bool
+    exact_disclosure_available: bool
+    allocation: FareAllocationSchema | None = None
+    conditional_scenarios: list[FareAllocationScenarioSchema] = Field(
+        default_factory=list
+    )
+
+
+class MatchDisclosureConsentRequest(BaseModel):
+    consent_text_version: str
+    disclosure_mode: Literal["EXACT"] = "EXACT"
+
+
 class MatchProposalSchema(BaseModel):
     proposal_id: uuid.UUID
     target_request_id: uuid.UUID
@@ -135,6 +185,9 @@ class MatchProposalSchema(BaseModel):
         default_factory=dict
     )
     fare_estimate: MatchFareEstimateSchema | None = None
+    # Overall pair comparison only. Personal allocations/savings remain private.
+    economic_assessment: EconomicAssessmentSchema | None = None
+    fare_allocation_disclosure: FareAllocationDisclosureSchema | None = None
 
 
 class MatchListResponseSchema(BaseModel):

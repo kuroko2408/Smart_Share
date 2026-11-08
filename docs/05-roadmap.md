@@ -223,15 +223,15 @@ Completion criteria:
 
 #### Phase 5C — Fare Allocation and Passenger Savings
 
-**Scope:** Consume Phase 5B's accepted shared fare and participant solo baseline estimates to compute proportional contributions, savings, negative-savings status, and passenger-specific response data. DEC-008 defines the proposed allocation mathematics. Exact co-passenger contribution disclosure is gated by final approval of DEC-013, including its residual privacy risk and consent policy.
+**Scope:** Consume Phase 5B's shared fare and participant solo baseline estimates to compute proportional contributions, savings, negative-savings status, and passenger-specific response data. DEC-008 defines the allocation mathematics. DEC-013 is approved (2026-11-08) for exact contribution disclosure only with bilateral affirmative consent, auditability, and residual inference-risk notice. Co-passenger solo baseline and private savings remain redacted.
 
-**Dependency:** Contract design and pure mathematical test cases may be prepared in parallel. Integrated implementation and acceptance require stable, accepted Phase 5B fare outputs and provenance; sequencing Phase 5C ahead of that contract risks implementing allocations against changing fare semantics.
+**Dependency:** Contract design and pure mathematical test cases may be prepared in parallel. This implementation consumes the stable Phase 5B fare output contract. Hosted integration/deployment acceptance remains contingent on Phase 5B's outstanding hosted E2E evidence and consent-table migration.
 
 **Completion evidence:** paise conservation, fairness bounds, monotonicity, break-even/dissavings, accuracy provenance, viewer-specific authorization, private-field redaction, and consent/decline/withdrawal tests pass. Exact values are returned only when both participants have separately and affirmatively consented. If exact disclosure is rejected, a bucketed policy must be evaluated against algebraic reconstruction through all related totals and shares.
 
 #### Phase 6A — Fare Estimate, Allocation and Consent UX
 
-**Scope:** Extend the existing frontend to present the Phase 5B estimate and, after Phase 5C/API readiness and DEC-013 resolution, the approved cost allocation. Explain that the estimate is not the final meter charge, surface route/fare accuracy and excluded charges, disclose inference risk before opt-in, and provide clear consent, decline, and approved alternative flows. This does not introduce payment collection.
+**Scope:** Extend the existing frontend to present the Phase 5B estimate and, after Phase 5C/API readiness, the approved cost allocation and consent flows. Phase 5C may include minimal consent controls required to safely expose its API; Phase 6A owns the broader integrated fare and consent UX. Explain estimate accuracy and excluded charges, disclose inference risk before opt-in, and provide consent/decline/withdrawal. This does not introduce payment collection.
 
 **Completion evidence:** authenticated API-backed journey, estimate-versus-final-charge labeling, accessible consent explanation, bilateral opt-in before exact disclosure, decline/withdrawal behavior, redaction of private solo economics/routes, loading/error/empty states, and frontend tests against real response contracts.
 
@@ -487,8 +487,8 @@ Suggested tracking table:
 | Ride request API & Management | Both | COMPLETED | End-to-end ride request lifecycle, REST endpoints, PostGIS 4326 persistence, React UI |
 | Matching engine | Backend | Not started | Matching test report |
 | Phase 5B Fare Estimation | Backend | Implemented; hosted E2E acceptance pending | Tariff, provenance, estimate disclaimer and regression evidence; hosted authenticated workflow remains unverified |
-| Phase 5C Fare Allocation | Backend | Not started | DEC-013 approval, conservation/privacy/consent tests and allocation report |
-| Phase 6A Fare and Consent UX | Frontend | Not started | Authenticated API-backed fare display, bilateral consent flow and UI verification |
+| Phase 5C Fare Allocation | Backend | Implemented; hosted acceptance pending | DEC-008 allocation/conservation, economic warning, DEC-013 consent enforcement and privacy tests; hosted migration/E2E remain outstanding |
+| Phase 6A Fare and Consent UX | Frontend | Not started | Broader authenticated fare presentation after Phase 5C API acceptance; no duplicate allocation logic |
 | Frontend MVP | Frontend | In progress | Core screens (Auth, Profile, Ride Requests complete; Matching next) |
 | Integration | Both | In progress | Supabase Auth, Profile, and Ride Requests integrated live |
 | Deployment | Both | Not started | Live demo |

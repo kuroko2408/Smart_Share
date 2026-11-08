@@ -87,6 +87,48 @@ export interface MatchFareEstimate {
   disclaimer: string;
 }
 
+export interface EconomicAssessment {
+  classification: 'POSITIVE' | 'BREAK_EVEN' | 'NEGATIVE' | 'CONDITIONAL';
+  message: string;
+}
+
+export interface FareAllocation {
+  policy: 'PROPORTIONAL_TO_SOLO_BASELINE';
+  shared_total: number;
+  shared_total_paise: number;
+  your_contribution: number;
+  your_contribution_paise: number;
+  co_passenger_contribution: number;
+  co_passenger_contribution_paise: number;
+  your_savings: number;
+  your_savings_paise: number;
+  your_savings_percent: string;
+}
+
+export interface FareAllocationDisclosure {
+  consent_text_version: string;
+  consent_notice: string;
+  your_consent_active: boolean;
+  co_passenger_consent_active: boolean;
+  exact_disclosure_available: boolean;
+  allocation?: FareAllocation | null;
+  conditional_scenarios?: FareAllocationScenario[];
+}
+
+export interface FareAllocationScenario {
+  tariff_period: 'DAY' | 'NIGHT';
+  economic_classification: 'POSITIVE' | 'BREAK_EVEN' | 'NEGATIVE';
+  shared_total: number;
+  shared_total_paise: number;
+  your_contribution: number;
+  your_contribution_paise: number;
+  co_passenger_contribution: number;
+  co_passenger_contribution_paise: number;
+  your_savings: number;
+  your_savings_paise: number;
+  your_savings_percent: string;
+}
+
 export interface MatchProposal {
   proposal_id: string;
   target_request_id: string;
@@ -108,6 +150,8 @@ export interface MatchProposal {
   route_legs?: RouteLeg[];
   passenger_metrics?: Record<string, PassengerJourneyDetail>;
   fare_estimate?: MatchFareEstimate | null;
+  economic_assessment?: EconomicAssessment | null;
+  fare_allocation_disclosure?: FareAllocationDisclosure | null;
 }
 
 export interface MatchListResponse {

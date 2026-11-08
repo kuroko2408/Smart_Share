@@ -4,7 +4,7 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** DEC-004 pre-trip estimation policy approved; DEC-013 pending final Product Owner approval.
+**Status:** DEC-004 pre-trip estimation policy and DEC-013 exact disclosure policy approved; physical meter behavior remains unresolved.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`
@@ -154,17 +154,18 @@ This register records Phase 5B fare-estimation policies and the related Phase 5C
 ---
 
 ### DEC-013: Exact Co-Passenger Contribution Disclosure and Consent
-- **Status:** **PROPOSED — PENDING FINAL PRODUCT OWNER APPROVAL (Phase 5C gate)**
+- **Status:** **APPROVED — Product Owner decision, 2026-11-08**
 - **Context:** Proportional allocation ($S_A / S_B = F_A / F_B$) mathematically allows any user who knows their own share $S_A$, their own solo baseline $F_A$, and the co-passenger contribution $S_B = F_{\text{shared}} - S_A$ to infer the co-passenger's solo baseline fare:
   $$F_B^* = F_A \times \frac{S_B}{S_A}$$
   Accounting for paise rounding, $F_B$ can be estimated to within $\pm 2\text{ paise}$.
-- **Proposed Decision:**
+- **Approved Decision:**
   1. For shared-cost transparency, show each consenting participant the exact proportional contribution of the other participant and the shared estimated fare. Contributions must sum exactly to the shared estimate in paise.
   2. Explicitly disclose beside the contribution that a participant who knows their own solo baseline and contribution can algebraically infer the other participant's solo baseline, approximately $F_B \approx F_A \times S_B/S_A$ (the audit estimates precision within about two paise for the analyzed example). Combined with already shared trip endpoints or external information, it may support additional distance inference. Consent must disclose this residual privacy risk; consent does not eliminate it.
   3. Before either participant can view or confirm an exact split, present a plain-language notice and require separate, affirmative consent from both participants. Do not infer consent from general terms, account creation, or silence. A participant who declines must not have their exact contribution revealed; offer the approved bucketed alternative or let the user leave the shared-cost flow. Record consent version, timestamp, participant, and selected disclosure mode using an approved auditable mechanism. Consent may be withdrawn before confirmation; revocation must stop further exact disclosure.
   4. Direct solo baseline fares, private savings, solo route distance/geometry, and other private route details remain redacted from the co-passenger. Shared itinerary details necessary to evaluate a proposed pooled ride are a separate, purpose-limited disclosure.
-  5. **Alternative if exact disclosure is rejected:** use contribution buckets, initially proposed as nearest ₹10. Bucketing is a reduction in displayed precision, not a guarantee against inference. If exact own-share and total-shared values remain visible, the hidden contribution is still algebraically recoverable; the fallback contract must coarsen or withhold enough linked values to reduce that disclosure and preserve understandable cost accounting.
-- **Consequences:** DEC-013 does not authorize implementation until the Product Owner approves or rejects the proposal. It gates Phase 5C exact allocation display and the dependent Phase 6A consent/UI flow. Phase 5B fare estimation can proceed with no co-passenger contribution fields exposed.
+  5. **Fallback if exact disclosure policy is later withdrawn:** use contribution buckets, initially nearest ₹10, after reviewing linked totals for reconstruction. Bucketing does not guarantee against inference.
+- **Approval record:** Product Owner selected “Approve exact disclosure with bilateral consent and inference notice” in response to the DEC-013 approval request on 2026-11-08. This authorizes exact contribution display only with the controls above; it does not authorize a confirmed ride or payment flow.
+- **Consequences:** Phase 5C may implement exact contribution display with bilateral affirmative consent and auditable consent events. Phase 5B responses remain viewer-scoped and do not expose the co-passenger's solo baseline or savings.
 
 ---
 
@@ -181,4 +182,4 @@ This register records Phase 5B fare-estimation policies and the related Phase 5C
 | **DEC-010** | Route Provenance | Conservative aggregation rule (`MATRIX_SCREENING`) | Approved |
 | **DEC-011** | Recalculation | Mandatory fare re-estimation on detail enrichment | Approved |
 | **DEC-012** | Model Lifecycle | Semantic versioning and effective date intervals | Approved |
-| **DEC-013** | Economic Privacy | Exact $S_B$ disclosure with explicit residual-risk notice and bilateral opt-in; bucketed alternative | **PROPOSED — PENDING FINAL PRODUCT OWNER APPROVAL** |
+| **DEC-013** | Economic Privacy | Exact contribution disclosure with residual-risk notice, bilateral opt-in, auditable grant/revoke, private solo baseline redaction | **APPROVED — 2026-11-08** |

@@ -3,7 +3,7 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Phase 5B estimate tests ready after DEC-004; Phase 5C/6A allocation and consent tests remain gated by DEC-013.
+**Status:** Phase 5B estimate tests ready after DEC-004; DEC-013 approved 2026-11-08, authorizing Phase 5C allocation and consent tests. Phase 6A remains downstream.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`

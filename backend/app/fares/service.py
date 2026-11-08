@@ -116,7 +116,7 @@ def estimate_match_fare(
     mode: PulseQuantizationMode | None = None,
     config: FareModelConfig | None = None,
 ) -> MatchFareEstimate:
-    """Estimate shared fare and only the authenticated request owner's solo baseline."""
+    """Estimate shared and both solo fares; the candidate baseline stays internal."""
     if proposal.shared_departure_end < proposal.shared_departure_start:
         raise ValueError("Shared departure window end precedes start")
     mode = mode or PulseQuantizationMode(get_settings().FARE_PULSE_QUANTIZATION_MODE)
@@ -157,8 +157,12 @@ def estimate_match_fare(
     return MatchFareEstimate(
         shared_journey=shared,
         your_solo_baseline=own,
+        co_passenger_solo_baseline=other,
         composite_accuracy=weakest,
         model_id=config.model_id,
         model_version=config.version,
         pulse_quantization_mode=mode,
+        minimum_fare_paise=int(config.base_fare * 100),
+        viewer_is_canonical_passenger_a=str(proposal.target_request_id)
+        < str(proposal.candidate_request_id),
     )

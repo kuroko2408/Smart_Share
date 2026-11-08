@@ -495,13 +495,24 @@ The backend:
 
 Each proposal includes a `fare_estimate` object with `shared_journey`, `your_solo_baseline`, component distance provenance and accuracy tiers, `composite_accuracy`, tariff model version, configured pulse strategy, a conditional day/night range when relevant, excluded charges, and the required estimate disclaimer. Amounts include rupee display value, integer paise, and whole-rupee rounded estimate.
 
-The response is scoped to the authenticated request owner. It does not contain the candidate's solo fare baseline, contribution, savings, or allocation fields. `passenger_metrics` contains only the request owner's solo-distance metric; the shared stop sequence and proposal detour information remain available to assess the pooled itinerary.
+The response is scoped to the authenticated request owner. It never contains the candidate's solo fare baseline, solo-route details, or savings. It includes a coarse economic classification (`POSITIVE`, `BREAK_EVEN`, `NEGATIVE`, or `CONDITIONAL`) with an explanation; a negative classification is a warning and is not advertised as money saving.
+
+`fare_allocation_disclosure` contains the DEC-013 notice and each participant's consent status. Exact contribution fields are absent until both proposal participants have separately consented to the current text version and the same current fare snapshot. For a fixed day or night tariff, `allocation` contains the whole shared-trip estimate, both exact contributions, and only the authenticated viewer's own savings and percentage. For a departure window crossing the night boundary, `allocation` is null and `conditional_scenarios` contains separate DAY and NIGHT contribution estimates; no single midpoint savings is represented as exact. It never contains the other passenger's solo baseline or individual savings. Contributions and savings carry integer-paise fields for exact reconciliation.
+
+The following authenticated endpoints require the currently valid proposal and an owned active request as `request_id`:
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Affirm exact disclosure after reviewing the current notice; body includes `consent_text_version` and `disclosure_mode: "EXACT"` |
+| DELETE | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Revoke this participant's consent; exact values are withheld until bilateral consent is active again |
+
+Consent is recorded as append-only events with participant request/user, notice version, mode, action, and timestamp. The additive migration is `c5d013c0a501`; it must be applied before enabling these routes in an environment. A stale or changed fare snapshot invalidates the previous grant.
 
 ### 13.2 Retrieve Match
 
 `GET /matches/{id}`
 
-Response should include:
+Response includes:
 
 - Candidate summary.
 - Departure compatibility.
@@ -511,10 +522,11 @@ Response should include:
 - Fare component provenance, conservative accuracy tier, conditional surcharge range, excluded charges, and estimate-versus-final-meter disclaimer.
 - Additional travel time.
 - Routing accuracy metadata.
+- The viewer-scoped economic status and DEC-013 disclosure state. Exact split fields are present only after bilateral consent.
 
 Fare estimates use `FARE_PULSE_QUANTIZATION_MODE` (`CONTINUOUS`, `CEILING`, or `FLOOR`); the default is `CONTINUOUS`. This is an estimate strategy and must not be described as reproducing the physical taxi meter. The final charge is determined by the taxi meter at trip completion.
 
-Acceptance and decline workflows are future lifecycle functionality and are not implemented by the matching/fare-estimation endpoints.
+Ride acceptance, group formation, and payment are future lifecycle functionality and are not implemented by the matching/allocation endpoints. Disclosure consent is independent of ride acceptance.
 
 <!-- Future API design, not implemented in the current matching/fare-estimation milestone.
 

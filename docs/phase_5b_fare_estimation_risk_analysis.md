@@ -3,7 +3,7 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** F-01 estimate policy approved; residual metrology risk remains; DEC-013 pending for Phase 5C.
+**Status:** F-01 estimate policy approved; residual metrology risk remains; DEC-013 approved 2026-11-08 with bilateral consent and inference notice controls.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`
@@ -35,7 +35,7 @@ Following the targeted audit on November 8, 2026, this risk analysis evaluates t
 | **RISK-FIN-03** | Financial | Negative savings (dissavings) causing user confusion | Medium | Medium | **MEDIUM** | **LOW** |
 | **RISK-REG-01** | Regulatory | Physical meter pulse quantization is unresolved at fractional 100m boundaries | High | Medium | **HIGH** | **MEDIUM** (Estimate is labeled; no meter-equivalence claim) |
 | **RISK-REG-02** | Regulatory | Surcharge window overlap on midnight/dawn boundaries | Medium | High | **HIGH** | **LOW** |
-| **RISK-PRIV-01** | Privacy | Exact co-passenger contribution enables algebraic inference of solo baseline | High | Medium | **HIGH** | **MEDIUM** (Consent informs; it does not eliminate inference; DEC-013 pending) |
+| **RISK-PRIV-01** | Privacy | Exact co-passenger contribution enables algebraic inference of solo baseline | High | Medium | **HIGH** | **MEDIUM** (DEC-013 approved with consent and notice; consent informs but does not eliminate inference) |
 
 ---
 
@@ -115,4 +115,4 @@ Following the targeted audit on November 8, 2026, this risk analysis evaluates t
   1. Direct fields (`co_passenger_solo_fare`, `direct_b_dist_m`, private savings) remain strictly redacted.
   2. Solo route distance, geometry, and waypoints remain private; only shared itinerary details needed to evaluate a pooled trip may be exposed.
   3. Before exact values are shown, both participants must affirmatively consent after a plain-language disclosure of this inference risk. Consent is per participant/mode, auditable, not bundled into general terms, and revocable before confirmation. Consent does not eliminate the residual inference.
-  4. DEC-013 remains pending. If exact disclosure is rejected, nearest-₹10 buckets remain a fallback policy proposal. Exact total fare plus exact own share can reconstruct the hidden contribution, so the complete response precision must also be reviewed; bucketing alone must not be described as eliminating inference.
+  4. DEC-013 is approved for exact disclosure with bilateral affirmative consent and an inference notice. If exact disclosure is later withdrawn, nearest-₹10 buckets remain a fallback requiring review of linked totals; bucketing alone must not be described as eliminating inference.

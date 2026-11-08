@@ -95,3 +95,22 @@ export async function fetchMatchProposal(
   );
   return response.data;
 }
+
+export async function grantFareDisclosureConsent(
+  requestId: string,
+  proposalId: string,
+  consentTextVersion: string
+) {
+  const response = await apiClient.post<{ data: MatchProposal['fare_allocation_disclosure'] }>(
+    `/matches/${proposalId}/disclosure-consent?request_id=${encodeURIComponent(requestId)}`,
+    { consent_text_version: consentTextVersion, disclosure_mode: 'EXACT' }
+  );
+  return response.data;
+}
+
+export async function withdrawFareDisclosureConsent(requestId: string, proposalId: string) {
+  const response = await apiClient.delete<{ data: MatchProposal['fare_allocation_disclosure'] }>(
+    `/matches/${proposalId}/disclosure-consent?request_id=${encodeURIComponent(requestId)}`
+  );
+  return response.data;
+}

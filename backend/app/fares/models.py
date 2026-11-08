@@ -66,7 +66,11 @@ class FareComponentEstimate:
 class MatchFareEstimate:
     shared_journey: FareComponentEstimate
     your_solo_baseline: FareComponentEstimate
+    # Internal Phase 5C input only. Never serialize this field to the current viewer.
+    co_passenger_solo_baseline: FareComponentEstimate
     composite_accuracy: FareAccuracy
     model_id: str
     model_version: str
     pulse_quantization_mode: PulseQuantizationMode
+    minimum_fare_paise: int
+    viewer_is_canonical_passenger_a: bool

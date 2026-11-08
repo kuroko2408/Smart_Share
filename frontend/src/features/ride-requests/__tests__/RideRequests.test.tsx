@@ -10,6 +10,7 @@ import { RideRequestList } from '@/features/ride-requests/RideRequestList';
 import { MatchResults } from '@/features/ride-requests/MatchResults';
 import * as rideRequestService from '@/services/ride-requests';
 import type { RideRequestResponse } from '@/types/ride-request';
+import type { MatchProposal } from '@/types/matching';
 
 const mockRequest: RideRequestResponse = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -248,20 +249,72 @@ describe('Ride Request UI Components', () => {
           compatibility_explanations: ['Pickups are nearby.'],
           created_at: mockRequest.created_at,
           fare_estimate: fareEstimate,
+          economic_assessment: { classification: 'NEGATIVE', message: 'Taking two separate rides is estimated to cost less overall than sharing. This compatible match is not a money-saving option.' },
         }],
       });
       renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
       expect(await screen.findByText(/85% match/i)).toBeInTheDocument();
       expect(screen.getByText(/Approximate geographic fallback/i)).toBeInTheDocument();
-      expect(screen.getByText(/Shared journey:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Your solo baseline:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Total shared taxi trip estimate:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your separate solo trip estimate:/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Not a money-saving option/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Taking two separate rides is estimated to cost less overall/i)).toBeInTheDocument();
       expect(screen.getByText(/Shared fare range for day\/night tariff/i)).toBeInTheDocument();
       expect(screen.getByText(/Your solo baseline day\/night range/i)).toBeInTheDocument();
       expect(screen.getByText(/does not reproduce the physical taxi meter/i)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /Why this suggestion/i }));
       expect(screen.getByText(/departure timing 100%/i)).toBeInTheDocument();
       expect(rideRequestService.findRideMatches).toHaveBeenCalledWith(mockRequest.id);
+    });
+
+    it('requires bilateral consent before showing exact contributions and displays the inference notice', async () => {
+      const proposal = {
+        proposal_id: 'consent-proposal',
+        target_request_id: mockRequest.id,
+        candidate: { candidate_request_id: 'candidate-1', candidate_display_name: 'Rider', candidate_pickup: mockRequest.pickup, candidate_destination: mockRequest.destination, seats_requested: 1, pickup_distance_meters: 100, destination_distance_meters: 300, shared_departure_window_start: mockRequest.departure_earliest, shared_departure_window_end: mockRequest.departure_latest, estimated_detour_minutes_target: 2, estimated_detour_minutes_candidate: 3, scores: { pickup_proximity_score: .9, destination_similarity_score: .8, departure_time_score: .9, route_detour_score: .8, composite_score: .85 } },
+        ordered_stops: [], total_shared_distance_km: 8, total_shared_duration_minutes: 25, best_sequence: 'pairwise', is_route_approximate: false, distance_is_approximate: false, routing_accuracy: 'ROAD_ROUTE', routing_notice: 'Road routing', compatibility_explanations: [], created_at: mockRequest.created_at,
+        fare_estimate: fareEstimate,
+        fare_allocation_disclosure: { consent_text_version: 'DEC-013-v1', consent_notice: 'Exact amounts may let the other rider infer your solo fare. Consent does not remove this privacy risk.', your_consent_active: false, co_passenger_consent_active: false, exact_disclosure_available: false, allocation: null },
+      } as MatchProposal;
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({ target_request_id: mockRequest.id, total_candidates_found: 1, proposals: [proposal] });
+      const allocation = { policy: 'PROPORTIONAL_TO_SOLO_BASELINE' as const, shared_total: 100, shared_total_paise: 10000, your_contribution: 60, your_contribution_paise: 6000, co_passenger_contribution: 40, co_passenger_contribution_paise: 4000, your_savings: 10, your_savings_paise: 1000, your_savings_percent: '14.2857' };
+      vi.spyOn(rideRequestService, 'grantFareDisclosureConsent').mockResolvedValue({ ...proposal.fare_allocation_disclosure!, your_consent_active: true });
+      vi.spyOn(rideRequestService, 'fetchMatchProposal').mockResolvedValue({ ...proposal, fare_allocation_disclosure: { ...proposal.fare_allocation_disclosure!, your_consent_active: true, co_passenger_consent_active: true, exact_disclosure_available: true, allocation } });
+
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(await screen.findByText(/Exact amounts may let the other rider infer your solo fare/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Other passenger's share:/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /I agree to exact disclosure/i }));
+      expect(await screen.findByText(/Other passenger's share:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Only your own solo baseline and savings are shown/i)).toBeInTheDocument();
+      expect(rideRequestService.grantFareDisclosureConsent).toHaveBeenCalledWith(mockRequest.id, 'consent-proposal', 'DEC-013-v1');
+    });
+
+    it('shows day and night allocation outcomes instead of a misleading midpoint saving', async () => {
+      const proposal = {
+        proposal_id: 'conditional-proposal',
+        target_request_id: mockRequest.id,
+        candidate: { candidate_request_id: 'candidate-conditional', candidate_display_name: 'Rider', candidate_pickup: mockRequest.pickup, candidate_destination: mockRequest.destination, seats_requested: 1, pickup_distance_meters: 100, destination_distance_meters: 300, shared_departure_window_start: mockRequest.departure_earliest, shared_departure_window_end: mockRequest.departure_latest, estimated_detour_minutes_target: 2, estimated_detour_minutes_candidate: 3, scores: { pickup_proximity_score: .9, destination_similarity_score: .8, departure_time_score: .9, route_detour_score: .8, composite_score: .85 } },
+        ordered_stops: [], total_shared_distance_km: 3.066, total_shared_duration_minutes: 25, best_sequence: 'pairwise', is_route_approximate: false, distance_is_approximate: false, routing_accuracy: 'ROAD_ROUTE', routing_notice: 'Road routing', compatibility_explanations: [], created_at: mockRequest.created_at,
+        economic_assessment: { classification: 'CONDITIONAL', message: 'The economic outcome depends on whether the day or night tariff applies.' },
+        fare_allocation_disclosure: {
+          consent_text_version: 'DEC-013-v1', consent_notice: 'Consent notice', your_consent_active: true, co_passenger_consent_active: true, exact_disclosure_available: true, allocation: null,
+          conditional_scenarios: [
+            { tariff_period: 'DAY', economic_classification: 'BREAK_EVEN', shared_total: 67.30, shared_total_paise: 6730, your_contribution: 33, your_contribution_paise: 3300, co_passenger_contribution: 34.30, co_passenger_contribution_paise: 3430, your_savings: 0, your_savings_paise: 0, your_savings_percent: '0.0000' },
+            { tariff_period: 'NIGHT', economic_classification: 'POSITIVE', shared_total: 84.12, shared_total_paise: 8412, your_contribution: 41.24, your_contribution_paise: 4124, co_passenger_contribution: 42.88, co_passenger_contribution_paise: 4288, your_savings: 0.01, your_savings_paise: 1, your_savings_percent: '0.0242' },
+          ],
+        },
+      } as MatchProposal;
+      vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({ target_request_id: mockRequest.id, total_candidates_found: 1, proposals: [proposal] });
+
+      renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
+      expect(await screen.findByText(/Cost comparison depends on the tariff window/i)).toBeInTheDocument();
+      expect(screen.getByText(/Day tariff · approximately break-even/i)).toBeInTheDocument();
+      expect(screen.getByText(/Night tariff · lower estimated total/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Your estimated savings: ₹0.02/i)).not.toBeInTheDocument();
     });
 
     it('renders route geometry badge when geometry is present', async () => {

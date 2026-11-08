@@ -4,7 +4,7 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Phase 5B design aligned to approved DEC-004 estimate policy; DEC-013 remains pending for Phase 5C disclosure.
+**Status:** Phase 5B design aligned to approved DEC-004 estimate policy; DEC-013 approved 2026-11-08 for exact contribution disclosure with bilateral consent and inference notice.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_model_decisions.md`
@@ -22,7 +22,7 @@ Smart Share enables commuters traveling along compatible corridors in Mumbai to 
 
 Phase 5A delivered normalized road network routing, multi-stop pooled route sequencing, and GeoJSON route geometry. Phase 5B implements tariff-based **pre-trip fare estimation** over those route metrics. The related Phase 5C milestone consumes the resulting shared and solo estimates to allocate contributions and calculate savings. The allocation formulas and API fields in Sections 9, 10 and 12 are retained as Phase 5C design inputs; they are not Phase 5B implementation outputs.
 
-Phase 5B responsibilities are tariff model/version selection, shared-journey and solo-baseline fare estimates, surcharge handling, accuracy provenance, and clear estimate-versus-final-charge communication. Its public response must not expose a co-passenger contribution, co-passenger solo baseline, private savings, or private solo route details. Phase 5C disclosure remains blocked pending DEC-013 approval.
+Phase 5B responsibilities are tariff model/version selection, shared-journey and solo-baseline fare estimates, surcharge handling, accuracy provenance, and clear estimate-versus-final-charge communication. Its public response must not expose a co-passenger contribution, co-passenger solo baseline, private savings, or private solo route details. Phase 5C may expose exact contributions and the viewer's own savings only after both participants separately consent to the current DEC-013 notice; co-passenger solo baseline and savings remain redacted.
 
 ---
 
@@ -123,10 +123,14 @@ This is now the approved Product Owner default for pre-trip fare estimation unde
 
 Sub-additivity ($F_{\text{shared}} < F_{\text{solo}, A} + F_{\text{solo}, B}$) is not assumed as a mathematical axiom. In circuitous detours, a pooled journey can exceed the sum of solo direct routes ($F_{\text{shared}} > F_{\text{solo}, A} + F_{\text{solo}, B}$), resulting in dissavings (negative savings).
 
-The fare engine classifies savings into three operational statuses:
-1. `POSITIVE` ($F_{\text{shared}} < F_{\text{solo}, A} + F_{\text{solo}, B}$): Cab pooling reduces costs for both passengers.
-2. `BREAK_EVEN` ($F_{\text{shared}} == F_{\text{solo}, A} + F_{\text{solo}, B}$): Exact neutrality.
-3. `NEGATIVE` ($F_{\text{shared}} > F_{\text{solo}, A} + F_{\text{solo}, B}$): Circuitous detour. Flagged with positive `detour_surcharge` and negative savings.
+Economic attractiveness is calculated after a route-compatible pair has been found; it never changes match eligibility. Let combined savings be the sum of the two solo estimates minus the shared estimate. `POSITIVE` means the result exceeds the one-paise tolerance caused by independently rounding three fares to paise. `BREAK_EVEN` means the absolute result is at most one paisa. `NEGATIVE` means the result is below negative one paisa. Each of the two solo fares and the shared fare may shift by up to half a paise, for at most 1.5 paise aggregate rounding uncertainty. With integer-paise reported values, treating differences of ±1 paisa as neutral ensures only a difference of at least 2 paise receives a directional classification. It is not a percentage discount threshold.
+
+1. `POSITIVE`: the shared trip is estimated to cost less overall than both passengers taking separate rides. The proportional allocation calculates each passenger's own contribution and savings; paise rounding can leave one passenger at break-even.
+2. `BREAK_EVEN`: the overall estimate is approximately neutral within the one-paise tolerance. Do not present a one-paisa difference as meaningful savings or extra cost.
+3. `NEGATIVE`: taking two separate rides is estimated to cost less overall. Keep the compatible match, show a clear warning, and never create a positive saving by changing the tariff or route.
+4. `CONDITIONAL`: the economic result differs between the day and night tariff scenarios. Until the departure tariff is known, exact contributions and individual savings are shown only as bilateral-consent-gated day/night scenarios, never as an unqualified midpoint amount.
+
+Before bilateral DEC-013 consent, expose only the approved coarse aggregate classification and message, alongside the viewer's own solo estimate and the full shared-trip estimate. Do not expose the other solo baseline, combined-solo total, or numeric combined savings because these permit direct/inferential reconstruction. After bilateral consent, show exact contributions and only the viewer's own savings; for a conditional tariff, return per-scenario values rather than one midpoint allocation.
 
 ---
 
@@ -210,7 +214,7 @@ The test assertion tolerance is fixed at **$0.04\text{ percentage points}$**.
 
 ## 9. Phase 5C — Cost Allocation Mathematics & Worked Examples
 
-This section is the allocation contract for Phase 5C, downstream of the Phase 5B estimate engine. It does not authorize Phase 5B to expose the co-passenger's contribution.
+This section is the allocation contract for Phase 5C, downstream of the Phase 5B estimate engine. DEC-013 approval authorizes exact contribution disclosure only after bilateral affirmative consent and the approved inference-risk notice.
 
 ### 9.1 Formulation & Hamilton-Hare Equivalence Proof
 Quotas:
@@ -240,7 +244,7 @@ Allocated share $S_A$ is strictly non-decreasing with respect to $F_A$ when $F_B
   Accurate to within $\pm 2\text{ paise}$.
 
 ### 10.2 Product Owner Decision (DEC-013)
-The exact-contribution policy is **PROPOSED and PENDING FINAL PRODUCT OWNER APPROVAL**. If approved, implement bilateral, explicit opt-in before either participant sees an exact split. The notice must state that exact contributions enable approximate inference of the other participant's solo baseline and, with shared endpoints or external information, may support distance inference; consent acknowledges this residual risk rather than removing it. Do not rely on general terms or silence. Record each participant's consent version, time and selected disclosure mode through an approved auditable mechanism. A decline or pre-confirmation withdrawal prevents exact contribution disclosure.
+**Approved 2026-11-08:** implement bilateral, explicit opt-in before either participant sees an exact split. The notice states exact contributions enable approximate inference of the other participant's solo baseline and, with shared endpoints or external information, may support distance inference; consent acknowledges this residual risk rather than removing it. Do not rely on general terms or silence. Record each participant's consent version, time and selected disclosure mode through an auditable mechanism. A decline or withdrawal prevents exact contribution disclosure.
 
 Keep the other participant's direct solo baseline fare, savings, direct distance and private solo route geometry/waypoints redacted. Shared pickup/dropoff and pooled itinerary details required to decide whether to share are purpose-limited shared-trip data, not permission to reveal solo-route data.
 

@@ -299,6 +299,19 @@ async def test_unauthenticated_access_rejected(
         ("POST", f"/api/v1/ride-requests/{random_id}/matches", None),
         ("GET", f"/api/v1/ride-requests/{random_id}/matches", None),
         ("GET", f"/api/v1/matches/{uuid.uuid4()}?request_id={random_id}", None),
+        (
+            "POST",
+            f"/api/v1/matches/{uuid.uuid4()}/disclosure-consent?request_id={random_id}",
+            {
+                "consent_text_version": "DEC-013-2026-11-08-v1",
+                "disclosure_mode": "EXACT",
+            },
+        ),
+        (
+            "DELETE",
+            f"/api/v1/matches/{uuid.uuid4()}/disclosure-consent?request_id={random_id}",
+            None,
+        ),
     ]
 
     for method, path, payload in endpoints:
@@ -308,6 +321,8 @@ async def test_unauthenticated_access_rejected(
             response = await unauthenticated_client.post(path, json=payload)
         elif method == "PATCH":
             response = await unauthenticated_client.patch(path, json=payload)
+        elif method == "DELETE":
+            response = await unauthenticated_client.delete(path)
         else:
             raise ValueError(f"Unsupported method: {method}")
 
@@ -341,6 +356,21 @@ async def test_match_access_checks_request_ownership_before_discovery(
 
     cross_user = await client_user_b.post(f"/api/v1/ride-requests/{request_id}/matches")
     assert cross_user.status_code == 403
+
+    proposal_id = uuid.uuid4()
+    consent_body = {
+        "consent_text_version": "DEC-013-2026-11-08-v1",
+        "disclosure_mode": "EXACT",
+    }
+    cross_consent = await client_user_b.post(
+        f"/api/v1/matches/{proposal_id}/disclosure-consent?request_id={request_id}",
+        json=consent_body,
+    )
+    assert cross_consent.status_code == 403
+    cross_revoke = await client_user_b.delete(
+        f"/api/v1/matches/{proposal_id}/disclosure-consent?request_id={request_id}"
+    )
+    assert cross_revoke.status_code == 403
 
     cancelled = await client_user_a.post(f"/api/v1/ride-requests/{request_id}/cancel")
     assert cancelled.status_code == 200
