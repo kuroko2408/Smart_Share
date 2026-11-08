@@ -477,9 +477,8 @@ The backend validates whether the request can be cancelled in its current state.
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/ride-requests/{id}/matches` | Start matching for a request |
+| GET | `/ride-requests/{id}/matches` | Re-run discovery for an owned request |
 | GET | `/matches/{id}` | Retrieve match proposal |
-| POST | `/matches/{id}/accept` | Accept proposal |
-| POST | `/matches/{id}/decline` | Decline proposal |
 
 ### 13.1 Start Matching
 
@@ -492,9 +491,11 @@ The backend:
 - Retrieves candidate requests.
 - Evaluates route compatibility.
 - Constructs feasible proposals.
-- Stores the relevant matching result.
+- Returns ranked proposal summaries; discovery does not persist a ride group.
 
-Response should contain a matching-run or proposal reference and the available proposal summaries.
+Each proposal includes a `fare_estimate` object with `shared_journey`, `your_solo_baseline`, component distance provenance and accuracy tiers, `composite_accuracy`, tariff model version, configured pulse strategy, a conditional day/night range when relevant, excluded charges, and the required estimate disclaimer. Amounts include rupee display value, integer paise, and whole-rupee rounded estimate.
+
+The response is scoped to the authenticated request owner. It does not contain the candidate's solo fare baseline, contribution, savings, or allocation fields. `passenger_metrics` contains only the request owner's solo-distance metric; the shared stop sequence and proposal detour information remain available to assess the pooled itinerary.
 
 ### 13.2 Retrieve Match
 
@@ -502,15 +503,20 @@ Response should contain a matching-run or proposal reference and the available p
 
 Response should include:
 
-- Match status.
-- Proposed members.
-- Departure time.
+- Candidate summary.
+- Departure compatibility.
 - Route summary.
 - Stop sequence.
-- Estimated fare.
-- Estimated individual savings.
+- Shared journey pre-trip fare estimate and the authenticated user's own solo baseline estimate.
+- Fare component provenance, conservative accuracy tier, conditional surcharge range, excluded charges, and estimate-versus-final-meter disclaimer.
 - Additional travel time.
-- Expiry information.
+- Routing accuracy metadata.
+
+Fare estimates use `FARE_PULSE_QUANTIZATION_MODE` (`CONTINUOUS`, `CEILING`, or `FLOOR`); the default is `CONTINUOUS`. This is an estimate strategy and must not be described as reproducing the physical taxi meter. The final charge is determined by the taxi meter at trip completion.
+
+Acceptance and decline workflows are future lifecycle functionality and are not implemented by the matching/fare-estimation endpoints.
+
+<!-- Future API design, not implemented in the current matching/fare-estimation milestone.
 
 ### 13.3 Accept Match
 
@@ -531,6 +537,8 @@ The backend must verify eligibility, capacity, expiry and current membership sta
 `POST /matches/{id}/decline`
 
 The system records the response and updates proposal or membership state as required.
+
+-->
 
 ---
 

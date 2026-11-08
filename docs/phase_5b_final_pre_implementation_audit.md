@@ -14,16 +14,16 @@
 
 ## 1. Executive Verdict & Sign-Off Recommendation
 
-### **VERDICT: CONDITIONAL PASS — PENDING PRODUCT OWNER DECISIONS**
+### **VERDICT: CONDITIONAL PASS — DEC-013 PENDING FOR PHASE 5C**
 
-Following a rigorous, skeptical re-investigation of independent review findings, the previous blanket PASS verdict has been superseded. Phase 5B is evaluated as **CONDITIONAL PASS — PENDING PRODUCT OWNER DECISIONS**.
+Following a rigorous, skeptical re-investigation of independent review findings, the previous blanket PASS verdict has been superseded. Phase 5B is evaluated as **CONDITIONAL PASS — DEC-013 PENDING FOR PHASE 5C**. F-01 no longer blocks the isolated estimate engine; DEC-013 remains a gate for exact cost-share disclosure and its dependent user experience.
 
-The technical architecture, financial formulas, sum-conservation invariants, and API contracts are fully sound, consistent, and implementation-ready. However, implementation authorization cannot be granted unconditionally until two explicit governance items are reviewed and resolved by the Product Owner:
+The technical architecture, financial formulas, sum-conservation invariants, and API contracts are documented. The Product Owner has resolved the Phase 5B pre-trip estimate default (F-01). One decision remains before fare allocation disclosure can be implemented. Phase 5B fare-estimation implementation can proceed independently once separately authorized, provided it respects the scope boundary that excludes co-passenger contribution disclosure.
 
-1. **Product Owner Decision Required on Co-Passenger Economic Privacy (Finding F-02 / DEC-013):**
-   The platform's proportional allocation formula intentionally discloses `co_passenger_contribution` ($S_B = F_{\text{shared}} - S_A$) to guarantee bill transparency. This disclosure mathematically enables a viewer to algebraically infer the co-passenger's solo baseline fare ($F_B \approx F_A \times S_B / S_A$) to within a few paise. While direct coordinates and private route geometry remain strictly redacted, this inferential disclosure is an inherent property of proportional cost sharing and **requires explicit Product Owner sign-off**.
-2. **Regulatory Pulse Quantization Marked as UNRESOLVED (Finding F-01):**
-   Primary regulatory documentation from the MMRTA and Maharashtra Transport Department confirms base fare (₹33.00 for 1.5 km), distance rate (₹21.90/km), and 25% night surcharge. However, authoritative legal metrology rules for electronic taximeters do not definitively establish whether a partially entered 100m segment immediately clocks a full ₹2.19 increment (Ceiling $\lceil \cdot \rceil$), only clocks upon completion (Floor $\lfloor \cdot \rfloor$), or uses continuous rate integration. Pending physical meter testing or explicit Product Owner policy, pulse quantization is marked as **UNRESOLVED**, and the engine specifies configurable quantization strategies.
+1. **DEC-013 / F-02 remains pending for Phase 5C exact allocation disclosure:**
+   Exact proportional co-passenger contribution ($S_B$) enables inference of that passenger's solo baseline ($F_B \approx F_A \times S_B/S_A$), estimated within a few paise in the audited example. The proposed policy includes clear user-facing disclosure and separate affirmative consent from both participants. Direct solo baseline fares, savings, solo distances, and private solo-route details remain redacted. The disclosure decision remains with the Product Owner.
+2. **F-01 / DEC-004 pre-trip estimate policy is approved; physical meter quantization remains unresolved:**
+   The Product Owner approved Continuous Linear Integration as the default pre-trip estimation method. This does not establish whether a physical meter uses Ceiling, Floor, or continuous pulse behavior. Estimates must not claim exact meter reproduction and must be distinguished from final meter charges.
 
 Implementation authorization remains with the Product Owner. **No runtime code has been modified in this audit pass.**
 
@@ -33,8 +33,8 @@ Implementation authorization remains with the Product Owner. **No runtime code h
 
 | Finding ID | Severity | Source Evidence Inspected | Core Issue | Resolution / Status | Implementation Blocker? |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **F-01** | **HIGH** | MMRTA Tariff Notifications, Legal Metrology Rules 2011, Khatua Committee Report | Insufficient evidence that 1,501m immediately clocks a full ₹2.19 pulse (ceiling). | Rigorously analyzed Ceiling, Floor, and Continuous hypotheses across 8 boundary points. Marked pulse quantization as **UNRESOLVED**; parameterized in configuration registry. | **YES — Requires PO policy selection** |
-| **F-02** | **HIGH** | `_proposal_to_schema()`, algebraic formula $F_B \approx F_A \times S_B / S_A$ | Previous report claimed no privacy leak exists despite algebraic inference of solo baseline. | Distinguished direct disclosure from inferential disclosure. Formulated explicit Product Owner decision DEC-013 with residual risk and mitigation options. | **YES — Requires PO sign-off** |
+| **F-01** | **HIGH** | MMRTA Tariff Notifications, Legal Metrology Rules 2011, Khatua Committee Report | Physical meter pulse quantization at partial 100m boundaries is not established. | PO approved continuous as pre-trip estimate default. Quantization remains configurable and unresolved; explicit estimate/final-charge distinction and no exact-meter claim required. | **NO for labeled Phase 5B estimates; physical meter equivalence remains unresolved** |
+| **F-02** | **HIGH** | Fare allocation contract; algebraic formula $F_B \approx F_A \times S_B / S_A$ | Exact contribution reveals enough information to infer solo baseline. | DEC-013 proposes exact disclosure with residual-risk notice and bilateral consent; private economics/routes remain redacted; bucketed alternative retained. | **YES for Phase 5C exact disclosure until PO decision** |
 | **F-03** | **HIGH** | `backend/app/routing/models.py`, `backend/app/matching/service.py` | Labeled composite accuracy as "Tier 1 Hybrid", violating weakest-link principle; enum names mismatched. | Corrected enum to `DistanceSource.PROVIDER_ROAD_NETWORK_ROUTE`. Enforced conservative composite rule: aggregate is `MATRIX_SCREENING`. Retained standard 4 tiers. | **RESOLVED** (No blocker) |
 | **F-04** | **MEDIUM** | Khatua Committee Report Clause 4.18.1, MMRTA notifications | Waiting charges assumed as ₹1.50/2 min without verified September 2026 rule. | Verified waiting charge formula (10% of per-km fare/min). Explicitly excluded waiting charges, tolls, and parking from pre-trip matching estimate. | **RESOLVED** (No blocker) |
 | **F-05** | **LOW** | `phase_5b_fare_estimation_design.md` Section 8.3 | Divergence bound unit omitted ("percentage points") and assumptions unstated. | Corrected unit to **percentage points (pp)**. Explicitly stated conditional assumptions ($F_A, F_B \ge \text{₹}33.00$, paise quantization, sum conservation). | **RESOLVED** (No blocker) |
@@ -87,17 +87,16 @@ The table below evaluates the 8 mandatory boundary distances across all three co
 To prevent an unverified metrological assumption from blocking system implementation:
 1. `FareModelConfig` parameterizes the pulse quantization strategy:
    `pulse_quantization_mode: Literal["CEILING", "FLOOR", "CONTINUOUS"] = "CONTINUOUS"`.
-2. For pre-trip pairwise matching quotes, **Hypothesis 3 (Continuous Linear Integration)** is recommended as the default calculation engine, because it eliminates artificial 100m step-discontinuities in cost allocation weights $W_A, W_B$, while `estimated_meter_fare` can display the statutory pulse-quantized range.
-3. The Product Owner must formally approve the default `pulse_quantization_mode` prior to production release.
+2. The Product Owner approves **Continuous Linear Integration** as the default pre-trip estimate method. This is an estimation policy and is not a finding about a physical meter's pulse behavior.
+3. CEILING and FLOOR remain configurable comparison hypotheses. If a scenario range is displayed, label it as a range across assumed calculation modes, not a verified physical meter range.
+4. Customer-facing copy must label amounts as **pre-trip estimates**, state that final charges are determined by the physical taxi meter at trip completion, and avoid claims of exact meter reproduction.
 
 ---
 
 ## 4. Finding F-02 — Clarify Co-Passenger Economic Privacy
 
 ### 4.1 Direct Disclosure vs Inferential Disclosure
-The audit inspected `backend/app/schemas/matching.py` and `backend/app/api/v1/endpoints/matching.py`:
-- **Direct Disclosure:** Smart Share **never** includes `co_passenger_solo_fare`, `co_passenger_savings`, or `co_passenger_direct_distance` in the viewer's fare response schema.
-- **Inferential Disclosure:** The API intentionally returns:
+The current Phase 4B match response exposes candidate trip endpoints for a ride decision; the proposed Phase 5C fare response has not been implemented. Under DEC-013, if approved, it would return to a consenting viewer:
   1. `your_allocated_fare` ($S_A$)
   2. `co_passenger_contribution` ($S_B$)
   3. `total_shared_fare` ($F_{\text{shared}} = S_A + S_B$)
@@ -119,18 +118,17 @@ If a user observes multiple proposals with the same candidate or correlates the 
 $$\hat{d}_{\text{solo}, B} \approx 1,500 + \frac{\hat{F}_B - 33.00}{21.90} \times 1,000\text{ meters}$$
 The user can estimate the candidate's solo travel distance with high accuracy ($\pm 50\text{ meters}$).
 
-Furthermore, in Phase 5A's existing `MatchProposalSchema`:
-`candidate` contains `candidate_pickup` and `candidate_destination` location points (with labels and coordinates). Because the pickup and dropoff points are already visible to enable the user to decide whether to share a ride, the solo distance was already geometrically calculable from the map.
+Furthermore, Phase 5A's existing `MatchProposalSchema` contains shared-trip candidate pickup and destination points to support the ride decision. A viewer may already estimate straight-line separation from those endpoints. The exact fare disclosure can strengthen inference about solo baseline fare and, when combined with external information, travel distance. Those endpoint disclosures are not a basis for exposing private solo-road distance, route geometry, or waypoints. The DEC-013 notice must describe this residual inference risk accurately.
 
 ### 4.4 Formal Product Owner Decision Required (DEC-013)
 The following decision is recorded in `docs/phase_5b_fare_model_decisions.md` and submitted for formal sign-off:
 
 > **DEC-013: Intentional Disclosure of Co-Passenger Contribution in Proportional Allocation**  
-> **Status:** PENDING PRODUCT OWNER APPROVAL  
-> **Policy:** The product intentionally discloses the co-passenger's estimated contribution ($S_B$) as part of transparent shared-cost billing. This disclosure mathematically enables approximate inference of the co-passenger's solo baseline fare ($F_B \approx F_A \times S_B / S_A$).  
-> **Why Disclosure is Necessary:** Cab pooling requires that passengers jointly verify that their contributions equal the taxi driver's meter amount ($S_A + S_B = F_{\text{shared}}$). Suppressing $S_B$ prevents passengers from verifying that the driver is not being overpaid.  
-> **What Remains Strictly Private:** Direct solo baseline fields, private savings, and private non-shared route coordinates remain redacted from the API response.  
-> **Mitigation Option Available:** If the Product Owner rejects inferential disclosure, the platform must adopt **Option B (Bucketed Contributions to nearest ₹10)** or **Option C (Independent Fixed Quotes)**.
+> **Status:** PROPOSED — PENDING FINAL PRODUCT OWNER APPROVAL (Phase 5C).
+> **Policy:** Display exact proportional co-passenger contribution for shared-cost transparency only after both participants separately and affirmatively consent. Explicitly disclose that the contribution, combined with a viewer's own baseline/share, permits algebraic inference of the co-passenger's solo baseline and may support further distance inference. This is a residual privacy risk; consent does not remove the inference.
+> **User notice and consent:** Show the disclosure adjacent to the amount before either participant views or confirms an exact split. Do not rely on general terms or silence. Record each participant's consent version, timestamp, and disclosure mode through an approved auditable mechanism; a decline or pre-confirmation withdrawal prevents exact disclosure.
+> **What Remains Strictly Private:** Direct solo baseline fares, private savings, solo road distances, and private solo-route geometry/waypoints remain redacted. Candidate endpoints and pooled itinerary details already exposed for trip evaluation are purpose-limited shared-trip data and do not authorize exposing additional solo-route details.
+> **Alternative:** If exact disclosure is rejected, use the proposed nearest-₹10 bucket policy only after reviewing all linked values. Exact shared total plus exact own share can still reveal the other contribution, so linked value precision must also be reviewed; buckets do not automatically eliminate inference.
 
 ---
 
@@ -209,7 +207,7 @@ Therefore:
    - `WAITING_TIME`: "Traffic or boarding delay; metered dynamically by taxi meter if incurred."
    - `ROAD_TOLL`: "Sea Link / Coastal Road toll; payable directly at booth or split equally."
    - `PARKING_LEVY`: "Airport pickup levy; payable directly if incurred."
-4. User-facing disclaimer states: *"Statutory Mumbai taxi meter estimate based on MMRTA regulations. Tolls and waiting charges are not included and must be settled directly with the driver."* Smart Share does not collect payments or guarantee final meter charges.
+4. User-facing disclaimer states: *"Estimated pre-trip fare based on the configured Mumbai tariff model. This continuous estimate does not reproduce the physical taxi meter's pulse behavior. The final charge is determined by the taxi meter at trip completion. Tolls, waiting time and parking are not included."* Smart Share does not collect payments or guarantee the final meter charge.
 
 ---
 

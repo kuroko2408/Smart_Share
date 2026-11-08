@@ -3,13 +3,14 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Risk Analysis (Pending Product Owner Decision Approvals on DEC-004 & DEC-013)  
+**Status:** F-01 estimate policy approved; residual metrology risk remains; DEC-013 pending for Phase 5C.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`
 - `docs/phase_5b_fare_model_decisions.md`
 - `docs/phase_5b_fare_estimation_test_strategy.md`
 - `docs/phase_5b_final_pre_implementation_audit.md`
+- `docs/phase_5b_product_owner_decision_sheet.md`
 
 ---
 
@@ -32,9 +33,9 @@ Following the targeted audit on November 8, 2026, this risk analysis evaluates t
 | **RISK-FIN-01** | Financial | Paisa leakage violating budget balance invariant | Medium | High | **HIGH** | **ZERO** (Eliminated) |
 | **RISK-FIN-02** | Financial | Systematic rounding bias penalizing Passenger B | Medium | Low | **LOW** | **ZERO** (Eliminated) |
 | **RISK-FIN-03** | Financial | Negative savings (dissavings) causing user confusion | Medium | Medium | **MEDIUM** | **LOW** |
-| **RISK-REG-01** | Regulatory | Pulse quantization ambiguity at fractional 100m boundaries | High | Medium | **HIGH** | **LOW** (Pending PO Mode) |
+| **RISK-REG-01** | Regulatory | Physical meter pulse quantization is unresolved at fractional 100m boundaries | High | Medium | **HIGH** | **MEDIUM** (Estimate is labeled; no meter-equivalence claim) |
 | **RISK-REG-02** | Regulatory | Surcharge window overlap on midnight/dawn boundaries | Medium | High | **HIGH** | **LOW** |
-| **RISK-PRIV-01** | Privacy | Reverse-engineering co-passenger solo trip baseline | High | Low | **MEDIUM** | **LOW** (Pending PO Sign-off) |
+| **RISK-PRIV-01** | Privacy | Exact co-passenger contribution enables algebraic inference of solo baseline | High | Medium | **HIGH** | **MEDIUM** (Consent informs; it does not eliminate inference; DEC-013 pending) |
 
 ---
 
@@ -96,9 +97,10 @@ Following the targeted audit on November 8, 2026, this risk analysis evaluates t
 #### RISK-REG-01: Pulse Quantization Ambiguity
 - **Threat:** Legal metrology specifications for Mumbai electronic meters are inconclusive regarding whether 1,501m clocks a pulse immediately (Ceiling) or upon completion (Floor).
 - **Audited Mitigation:**
-  1. Quantization mode is parameterized in `FareModelConfig` (`CONTINUOUS`, `CEILING`, `FLOOR`).
-  2. Default recommendation is `"CONTINUOUS"` for smooth allocation weights.
-  3. Final mode selection is submitted for Product Owner approval.
+  1. The Product Owner approved `CONTINUOUS` as the default **pre-trip estimation method**. This is not a determination of physical meter behavior.
+  2. `CEILING`, `FLOOR`, and `CONTINUOUS` remain configurable for comparison; only continuous is the approved estimate default.
+  3. Every estimate must say it is a pre-trip estimate, is not an exact reproduction of meter pulses, and is distinct from the final meter charge.
+  4. The actual electronic meter behavior remains legally unresolved until authoritative evidence or physical validation is obtained.
 
 #### RISK-REG-02: Surcharge Overlap on Boundary Windows
 - **Threat:** A departure window crossing 00:00 or 05:00 IST could lead to passenger disputes if the ride is billed at night rate while quoted at day rate.
@@ -108,8 +110,9 @@ Following the targeted audit on November 8, 2026, this risk analysis evaluates t
   3. UI renders estimated range and explanatory notice.
 
 #### RISK-PRIV-01: Co-Passenger Baseline Reverse-Engineering (DEC-013)
-- **Threat:** Proportional allocation allows a passenger to approximate $F_B \approx F_A \times S_B / S_A$ to within $\pm 2\text{ paise}$.
+- **Threat:** Exact proportional contribution disclosure enables a passenger to approximate $F_B \approx F_A \times S_B / S_A$ to within about $\pm 2\text{ paise}$ for the audit example. Repeated proposals and linked exact amounts may support additional inference.
 - **Audited Mitigation:**
   1. Direct fields (`co_passenger_solo_fare`, `direct_b_dist_m`, private savings) remain strictly redacted.
-  2. Candidate pickup and dropoff points are already visible in `MatchCandidateSummarySchema` to enable trip decisions.
-  3. The inferential disclosure is submitted as an explicit Product Owner decision (DEC-013) pending formal sign-off.
+  2. Solo route distance, geometry, and waypoints remain private; only shared itinerary details needed to evaluate a pooled trip may be exposed.
+  3. Before exact values are shown, both participants must affirmatively consent after a plain-language disclosure of this inference risk. Consent is per participant/mode, auditable, not bundled into general terms, and revocable before confirmation. Consent does not eliminate the residual inference.
+  4. DEC-013 remains pending. If exact disclosure is rejected, nearest-₹10 buckets remain a fallback policy proposal. Exact total fare plus exact own share can reconstruct the hidden contribution, so the complete response precision must also be reviewed; bucketing alone must not be described as eliminating inference.

@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db as get_db_session
+from app.fares.models import FareComponentEstimate, MatchFareEstimate
+from app.fares.service import estimate_match_fare
 from app.matching.service import (
     MatchProposal,
     enrich_proposal_geometry,
@@ -29,9 +31,13 @@ from app.routing.provider_factory import get_routing_provider
 from app.schemas.auth import AuthUser
 from app.schemas.common import DataResponse
 from app.schemas.matching import (
+    ConditionalFareRangeSchema,
+    FareAmountSchema,
+    FareComponentSchema,
     GeoJSONLineStringSchema,
     LocationPointSchema,
     MatchCandidateSummarySchema,
+    MatchFareEstimateSchema,
     MatchListResponseSchema,
     MatchProposalSchema,
     PassengerJourneyDetailSchema,
@@ -44,6 +50,57 @@ router = APIRouter(prefix="/ride-requests", tags=["matching"])
 proposal_router = APIRouter(prefix="/matches", tags=["matching"])
 
 logger = logging.getLogger(__name__)
+
+
+def _fare_disclaimer(mode: str) -> str:
+    return (
+        "Estimated pre-trip fare based on the configured Mumbai tariff model. "
+        f"The selected {mode.lower()} calculation is an estimate and does not "
+        "claim to reproduce the physical taxi meter's legally unresolved pulse "
+        "behavior. The final charge is determined by the taxi meter at trip "
+        "completion. Tolls, waiting time and parking are not included."
+    )
+
+
+def _fare_component_to_schema(value: FareComponentEstimate) -> FareComponentSchema:
+    amount = value.amount
+    fare_range = None
+    if value.fare_range:
+        fare_range = ConditionalFareRangeSchema(
+            minimum=FareAmountSchema(
+                estimate=float(value.fare_range.minimum.estimate),
+                estimate_paise=value.fare_range.minimum.estimate_paise,
+                rounded_estimate_rupees=value.fare_range.minimum.rounded_estimate_rupees,
+            ),
+            maximum=FareAmountSchema(
+                estimate=float(value.fare_range.maximum.estimate),
+                estimate_paise=value.fare_range.maximum.estimate_paise,
+                rounded_estimate_rupees=value.fare_range.maximum.rounded_estimate_rupees,
+            ),
+        )
+    return FareComponentSchema(
+        estimate=float(amount.estimate),
+        estimate_paise=amount.estimate_paise,
+        rounded_estimate_rupees=amount.rounded_estimate_rupees,
+        distance_meters=float(value.distance_meters),
+        distance_source=value.source,
+        accuracy_tier=value.accuracy.value,
+        surcharge_status=value.surcharge_status.value,
+        fare_range=fare_range,
+    )
+
+
+def _fare_to_schema(value: MatchFareEstimate) -> MatchFareEstimateSchema:
+    return MatchFareEstimateSchema(
+        shared_journey=_fare_component_to_schema(value.shared_journey),
+        your_solo_baseline=_fare_component_to_schema(value.your_solo_baseline),
+        composite_accuracy=value.composite_accuracy.value,
+        fare_model_id=value.model_id,
+        fare_model_version=value.model_version,
+        pulse_quantization_mode=value.pulse_quantization_mode.value,
+        excluded_charges=["tolls", "waiting time", "parking"],
+        disclaimer=_fare_disclaimer(value.pulse_quantization_mode.value),
+    )
 
 
 def _parse_uuid(val: Any) -> uuid.UUID:
@@ -91,6 +148,17 @@ async def _get_active_owned_request(
 
 def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
     """Convert internal MatchProposal dataclass to Pydantic response schema."""
+    try:
+        fare_estimate = _fare_to_schema(estimate_match_fare(p))
+    except (ValueError, LookupError, ArithmeticError) as exc:
+        # Fare estimation is informative and must not turn a feasible match into an API failure.
+        logger.warning(
+            "Fare estimate unavailable for proposal %s (%s)",
+            p.proposal_id,
+            type(exc).__name__,
+        )
+        fare_estimate = None
+
     scores = ScoreBreakdownSchema(
         pickup_proximity_score=round(p.scores.pickup_proximity_score, 4),
         destination_similarity_score=round(p.scores.destination_similarity_score, 4),
@@ -167,6 +235,7 @@ def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
             detour_duration_minutes=round(m.detour_duration_minutes, 1),
         )
         for req_id, m in p.passenger_metrics.items()
+        if req_id == str(p.target_request_id)
     }
 
     route_geometry = None
@@ -203,6 +272,7 @@ def _proposal_to_schema(p: MatchProposal) -> MatchProposalSchema:
         route_geometry=route_geometry,
         route_legs=route_legs,
         passenger_metrics=passenger_metrics,
+        fare_estimate=fare_estimate,
     )
 
 

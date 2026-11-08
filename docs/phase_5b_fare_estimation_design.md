@@ -1,16 +1,18 @@
 # Smart Share — Phase 5B Technical Design Specification
-## Fare Estimation Models, Cost Allocation & Savings Architecture (Post-Audit Targeted Amendment)
+## Fare Estimation Models (with Phase 5C Allocation Interface)
 
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Design Specified (Pending Product Owner Decision Approvals on DEC-004 & DEC-013)  
+**Status:** Phase 5B design aligned to approved DEC-004 estimate policy; DEC-013 remains pending for Phase 5C disclosure.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_model_decisions.md`
 - `docs/phase_5b_fare_estimation_test_strategy.md`
 - `docs/phase_5b_fare_estimation_risk_analysis.md`
 - `docs/phase_5b_final_pre_implementation_audit.md`
+- `docs/phase_5b_product_owner_decision_sheet.md`
+- `docs/05-roadmap.md`
 
 ---
 
@@ -18,12 +20,9 @@
 
 Smart Share enables commuters traveling along compatible corridors in Mumbai to share a black-and-yellow taxi, reducing individual travel expenses, passenger detours, and road congestion.
 
-Phase 5A delivered normalized road network routing, multi-stop pooled route sequencing, and GeoJSON route geometry. Phase 5B introduces the economic and fare calculation architecture:
-1. **Statutory Tariff Modeling:** Parameterized implementation of the official Mumbai taxi tariff (MMRTA regulations).
-2. **Fair Cost Allocation:** Mathematically proven proportional allocation conserving every paisa down to 0.0000.
-3. **Savings & Economics:** Clear quantification of savings compared to traveling alone.
-4. **Viewer Privacy:** Strict viewer-centric API exposing personal economics while redacting co-passenger private metrics.
-5. **Decoupled Architecture:** Clean architectural separation between route feasibility and financial estimation.
+Phase 5A delivered normalized road network routing, multi-stop pooled route sequencing, and GeoJSON route geometry. Phase 5B implements tariff-based **pre-trip fare estimation** over those route metrics. The related Phase 5C milestone consumes the resulting shared and solo estimates to allocate contributions and calculate savings. The allocation formulas and API fields in Sections 9, 10 and 12 are retained as Phase 5C design inputs; they are not Phase 5B implementation outputs.
+
+Phase 5B responsibilities are tariff model/version selection, shared-journey and solo-baseline fare estimates, surcharge handling, accuracy provenance, and clear estimate-versus-final-charge communication. Its public response must not expose a co-passenger contribution, co-passenger solo baseline, private savings, or private solo route details. Phase 5C disclosure remains blocked pending DEC-013 approval.
 
 ---
 
@@ -43,6 +42,9 @@ Every quote explicitly communicates its component-level provenances (`shared_jou
 
 ### Principle E: Monetary Precision and Dual Wire Serialization
 All internal calculations are conducted strictly in Python `Decimal`. Wire representations provide integer paise alongside float display numbers to prevent IEEE 754 floating-point drift in client browsers.
+
+### Principle F: Estimate Is Not the Final Meter Charge
+Every customer-facing amount produced before travel is a **pre-trip fare estimate**. Continuous linear integration is the approved calculation default, not a claim about physical electronic meter pulse behavior. The estimate must not be described as an exact meter reproduction or final charge. The final fare is determined by the physical meter at trip completion, and may differ due to actual distance, meter quantization, traffic/waiting time, tolls, parking and other applicable charges.
 
 ---
 
@@ -104,18 +106,20 @@ Authoritative legal metrology documentation does not definitively establish whet
 ```
 
 ### 4.3 Parameterized Quantization Strategy
-The fare engine parameterizes pulse quantization in `FareModelConfig`:
+The fare engine selects pulse quantization using the runtime setting `FARE_PULSE_QUANTIZATION_MODE` (`CONTINUOUS`, `CEILING`, or `FLOOR`). It defaults to `CONTINUOUS`; tariff rates remain parameterized in the immutable `FareModelConfig` registry:
 ```python
 class PulseQuantizationMode(enum.StrEnum):
     CONTINUOUS = "CONTINUOUS"
     CEILING = "CEILING"
     FLOOR = "FLOOR"
 ```
-- **Default Recommendation:** `"CONTINUOUS"` for pre-trip matching allocations. Eliminates artificial step-discontinuities in cost-sharing weights $W_A, W_B$, while `estimated_meter_fare` presents the rounded statutory integer amount.
+- **Approved pre-trip default:** `"CONTINUOUS"` for fare estimates. Any later cost-allocation use is a separate Phase 5C responsibility; this fare-estimation response does not expose allocation values.
+
+This is now the approved Product Owner default for pre-trip fare estimation under DEC-004. CEILING and FLOOR remain configurable hypotheses only. The physical meter's actual pulse quantization is legally unresolved. Do not call the continuous result an exact meter fare. Show a label such as **Estimated pre-trip fare** and state that it is distinct from the final physical meter charge.
 
 ---
 
-## 5. Elimination of False Sub-Additivity
+## 5. Phase 5C Allocation Input — Savings and False Sub-Additivity
 
 Sub-additivity ($F_{\text{shared}} < F_{\text{solo}, A} + F_{\text{solo}, B}$) is not assumed as a mathematical axiom. In circuitous detours, a pooled journey can exceed the sum of solo direct routes ($F_{\text{shared}} > F_{\text{solo}, A} + F_{\text{solo}, B}$), resulting in dissavings (negative savings).
 
@@ -204,7 +208,9 @@ The test assertion tolerance is fixed at **$0.04\text{ percentage points}$**.
 
 ---
 
-## 9. Cost Allocation Mathematics & Worked Examples
+## 9. Phase 5C — Cost Allocation Mathematics & Worked Examples
+
+This section is the allocation contract for Phase 5C, downstream of the Phase 5B estimate engine. It does not authorize Phase 5B to expose the co-passenger's contribution.
 
 ### 9.1 Formulation & Hamilton-Hare Equivalence Proof
 Quotas:
@@ -225,7 +231,7 @@ Allocated share $S_A$ is strictly non-decreasing with respect to $F_A$ when $F_B
 
 ---
 
-## 10. Passenger-Specific API Visibility & Privacy (DEC-013)
+## 10. Phase 5C — Passenger-Specific API Visibility & Privacy (DEC-013)
 
 ### 10.1 Direct vs Inferential Disclosure
 - **Direct Redaction:** The API never exposes `co_passenger_solo_fare`, `co_passenger_savings`, or `co_passenger_direct_distance`.
@@ -234,10 +240,11 @@ Allocated share $S_A$ is strictly non-decreasing with respect to $F_A$ when $F_B
   Accurate to within $\pm 2\text{ paise}$.
 
 ### 10.2 Product Owner Decision (DEC-013)
-This intentional disclosure is recorded under DEC-013 and is **PENDING PRODUCT OWNER APPROVAL**:
-- Essential for fare transparency ($S_A + S_B = F_{\text{shared}}$).
-- Candidate pickup and dropoff points are already visible in `MatchCandidateSummarySchema` to enable trip decisions.
-- If rejected, the platform can adopt **Option B (Bucketed Contributions)** or **Option C (Independent Fixed Quotes)**.
+The exact-contribution policy is **PROPOSED and PENDING FINAL PRODUCT OWNER APPROVAL**. If approved, implement bilateral, explicit opt-in before either participant sees an exact split. The notice must state that exact contributions enable approximate inference of the other participant's solo baseline and, with shared endpoints or external information, may support distance inference; consent acknowledges this residual risk rather than removing it. Do not rely on general terms or silence. Record each participant's consent version, time and selected disclosure mode through an approved auditable mechanism. A decline or pre-confirmation withdrawal prevents exact contribution disclosure.
+
+Keep the other participant's direct solo baseline fare, savings, direct distance and private solo route geometry/waypoints redacted. Shared pickup/dropoff and pooled itinerary details required to decide whether to share are purpose-limited shared-trip data, not permission to reveal solo-route data.
+
+If exact disclosure is rejected, use the proposed nearest-₹10 bucketed contribution policy only after reviewing the whole response for algebraic reconstruction. Exact `total_shared_fare` plus exact `your_allocated_fare` reveals the co-passenger contribution even if the contribution field is hidden; the alternative must coarsen or withhold linked values as needed. Bucketing reduces precision and must not be represented as eliminating inference.
 
 ---
 
@@ -253,11 +260,13 @@ This intentional disclosure is recorded under DEC-013 and is **PENDING PRODUCT O
 2. `WAITING_TIME`: Traffic or boarding delays (Khatua Committee Clause 4.18.1; metered dynamically if incurred).
 3. `AIRPORT_PARKING`: Airport pickup/parking levies.
 
-**Disclaimer:** *"Statutory Mumbai taxi meter estimate based on MMRTA regulations. Tolls and waiting charges are not included and must be settled directly with the driver."* Smart Share does not collect payments or guarantee final meter charges.
+**Required estimate disclaimer:** *"Estimated pre-trip fare based on the configured Mumbai tariff model; this continuous estimate does not reproduce the physical taxi meter's pulse behavior. The final charge is determined by the taxi meter at trip completion. Tolls, waiting time and parking are not included."* Smart Share does not collect payments or guarantee the final meter charge.
 
 ---
 
-## 12. Proposed API Schema Design
+## 12. Proposed Phase 5C API Schema Design
+
+This is a downstream allocation response target, not the Phase 5B fare-estimation response. Phase 5B may calculate both solo baselines internally for use by Phase 5C, but it must not expose the co-passenger contribution, solo baseline, savings, or private solo-route details.
 
 ```python
 class IncludedChargeSchema(BaseModel):
@@ -287,9 +296,10 @@ class MatchProposalFareSchema(BaseModel):
     your_savings: float
     your_savings_paise: int
     your_savings_percent: float
+    # Phase 5C only; disclose exact values only after DEC-013 consent.
     co_passenger_contribution: float
     co_passenger_contribution_paise: int
-    
+
     pricing_model_id: str = "mumbai_taxi_standard"
     pricing_model_version: str = "1.0.0"
     composite_accuracy: str = "MATRIX_SCREENING"
@@ -300,13 +310,13 @@ class MatchProposalFareSchema(BaseModel):
     solo_baseline_a_accuracy: str
     solo_baseline_b_source: str
     solo_baseline_b_accuracy: str
-    
+
     surcharge_status: str
     fare_range: ConditionalFareRangeSchema | None = None
-    
+
     included_charges: list[IncludedChargeSchema]
     excluded_charges: list[ExcludedChargeSchema]
-    
+
     disclaimer: str
     calculated_at: datetime
 ```
@@ -315,4 +325,12 @@ class MatchProposalFareSchema(BaseModel):
 
 ## 13. Verification & Safety Confirmation
 
-Application code and database schemas remain completely unmodified. Implementation authorization remains withheld pending Product Owner review.
+Phase 5B implementation was authorized after the Product Owner approved continuous linear pre-trip estimation. Physical meter pulse behavior remains legally unresolved. DEC-013 is a Phase 5C disclosure decision and does not block the isolated Phase 5B estimator. No Phase 5C behavior is authorized by this design.
+
+## 14. Phase 5B Implementation Contract
+
+The implementation attaches `fare_estimate` to the existing matching proposal response for discovery and proposal detail. It contains `shared_journey` and the authenticated request owner's `your_solo_baseline`; it never serializes the candidate's solo fare. Existing passenger solo-distance detail is also limited to the viewer's request. The shared itinerary and compatibility detour information remain available.
+
+The estimate uses `FARE_PULSE_QUANTIZATION_MODE` (`CONTINUOUS`, `CEILING`, or `FLOOR`), defaulting to `CONTINUOUS`. Fare math uses Python `Decimal`, serializes paise and a rounded whole-rupee estimate, and evaluates the Asia/Kolkata `[00:00, 05:00)` night interval. Day/night-spanning windows receive a conditional range. Four route sources map to the four approved accuracy tiers; the composite reports the weakest material source.
+
+An unsupported route source or invalid fare input makes `fare_estimate` null without discarding an otherwise feasible match. No schema migration or fare persistence is required. Phase 5B contains no allocation, contribution, savings, consent, or fare-splitting behavior.

@@ -1962,3 +1962,80 @@ async def test_candidate_promotion_never_exceeds_external_routing_cap_of_three()
         assert proposals == []
         # DEC-002: Only top 3 candidates were evaluated; candidates 4 and 5 were never routed
         assert provider.route_call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_match_discovery_api_includes_viewer_scoped_fare_estimate() -> None:
+    """Exercise candidate matching through the real response serializer and fare engine."""
+    user_id, target_id, candidate_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    now = datetime.now(UTC)
+    target = RideRequest(
+        id=target_id,
+        user_id=user_id,
+        status=RideRequestStatus.ACTIVE,
+        pickup_location="POINT(72.8687 19.0657)",
+        destination="POINT(72.9060 19.1176)",
+        departure_earliest=now + timedelta(hours=1),
+        departure_latest=now + timedelta(hours=1, minutes=30),
+        seats_requested=1,
+        max_extra_minutes=15,
+    )
+    candidate = {
+        "candidate_id": candidate_id,
+        "candidate_user_id": uuid.uuid4(),
+        "owner_name": "Candidate Rider",
+        "pickup_location": "POINT(72.8690 19.0660)",
+        "destination": "POINT(72.9065 19.1178)",
+        "pickup_label": "Candidate pickup",
+        "destination_label": "Candidate destination",
+        "seats_requested": 1,
+        "max_extra_minutes": 15,
+        "departure_earliest": target.departure_earliest,
+        "departure_latest": target.departure_latest,
+        "pickup_distance_m": 50.0,
+        "dest_distance_m": 60.0,
+        "overlap_seconds": 1800.0,
+    }
+    auth_user = AuthUser(
+        id=user_id, email="test@smartshare.in", role="authenticated", user_metadata={}
+    )
+    app.dependency_overrides[get_current_user] = lambda: auth_user
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
+
+    with (
+        patch(
+            "app.api.v1.endpoints.matching._get_active_owned_request",
+            AsyncMock(return_value=target),
+        ),
+        patch(
+            "app.api.v1.endpoints.matching.get_routing_provider",
+            return_value=MockPhase5ARoutingProvider(),
+        ),
+        patch(
+            "app.matching.service.discover_candidates",
+            AsyncMock(return_value=[candidate]),
+        ),
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(f"/api/v1/ride-requests/{target_id}/matches")
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    payload = response.json()["data"]["proposals"][0]
+    fare = payload["fare_estimate"]
+    assert fare["shared_journey"]["estimate_paise"] > 0
+    assert fare["your_solo_baseline"]["estimate_paise"] > 0
+    assert fare["composite_accuracy"] == "MATRIX_SCREENING"
+    assert "does not claim to reproduce" in fare["disclaimer"]
+    serialized_proposal = str(payload).lower()
+    assert not any(
+        forbidden in serialized_proposal
+        for forbidden in (
+            "contribution",
+            "allocated_fare",
+            "savings",
+            "co_passenger_solo",
+        )
+    )
+    assert list(payload["passenger_metrics"]) == [str(target_id)]

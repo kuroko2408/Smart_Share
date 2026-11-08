@@ -213,6 +213,30 @@ Completion criteria:
 - Fare shares are calculated consistently.
 - Provider failures are handled gracefully.
 
+#### Phase 5B — Fare Estimation Models
+
+**Scope:** Implement the versioned tariff calculator over Phase 5A's normalized shared and solo route metrics. This milestone produces pre-trip estimates, tariff/surcharge metadata, rounding, and conservative accuracy provenance. Continuous Linear Integration is the approved default for pre-trip estimates under DEC-004. The estimate must be labeled as an estimate, distinguished from the final physical meter charge, and must not claim to reproduce physical meter pulse behavior. The actual electronic meter pulse quantization remains legally unresolved and configurable.
+
+**Boundary:** Phase 5B may calculate solo baselines internally for downstream allocation, but its public response must not expose a co-passenger's contribution, solo baseline fare, savings, or private solo-route information. Cost-share allocation and disclosure are Phase 5C.
+
+**Completion evidence:** tariff boundary/timezone tests pass; route-source accuracy is propagated without overclaiming; estimates use Decimal and conserve wire precision; timeout/fallback behavior is explicit; UI/API copy identifies pre-trip estimates and excluded charges; existing Phase 5A routing/matching behavior remains unchanged. No migration unless separately justified and approved.
+
+#### Phase 5C — Fare Allocation and Passenger Savings
+
+**Scope:** Consume Phase 5B's accepted shared fare and participant solo baseline estimates to compute proportional contributions, savings, negative-savings status, and passenger-specific response data. DEC-008 defines the proposed allocation mathematics. Exact co-passenger contribution disclosure is gated by final approval of DEC-013, including its residual privacy risk and consent policy.
+
+**Dependency:** Contract design and pure mathematical test cases may be prepared in parallel. Integrated implementation and acceptance require stable, accepted Phase 5B fare outputs and provenance; sequencing Phase 5C ahead of that contract risks implementing allocations against changing fare semantics.
+
+**Completion evidence:** paise conservation, fairness bounds, monotonicity, break-even/dissavings, accuracy provenance, viewer-specific authorization, private-field redaction, and consent/decline/withdrawal tests pass. Exact values are returned only when both participants have separately and affirmatively consented. If exact disclosure is rejected, a bucketed policy must be evaluated against algebraic reconstruction through all related totals and shares.
+
+#### Phase 6A — Fare Estimate, Allocation and Consent UX
+
+**Scope:** Extend the existing frontend to present the Phase 5B estimate and, after Phase 5C/API readiness and DEC-013 resolution, the approved cost allocation. Explain that the estimate is not the final meter charge, surface route/fare accuracy and excluded charges, disclose inference risk before opt-in, and provide clear consent, decline, and approved alternative flows. This does not introduce payment collection.
+
+**Completion evidence:** authenticated API-backed journey, estimate-versus-final-charge labeling, accessible consent explanation, bilateral opt-in before exact disclosure, decline/withdrawal behavior, redaction of private solo economics/routes, loading/error/empty states, and frontend tests against real response contracts.
+
+These lettered milestones clarify the broader Phase 5 and Phase 6 definitions in this roadmap. The Phase 5A routing architecture already identifies Phase 5C as fare allocation; Phase 6A is newly made explicit here because no prior repository document defined it.
+
 ### Phase 6 — Frontend Product Development
 
 **Goal:** Build the user-facing application.
@@ -410,6 +434,9 @@ flowchart TD
     API[Ride Request API]
     MATCH[Matching Engine]
     ROUTE[Routing and Fare]
+    FARE[Phase 5B Fare Estimation]
+    ALLOC[Phase 5C Fare Allocation]
+    FARE_UI[Phase 6A Fare and Consent UX]
     UI[Frontend Development]
     INT[Integration]
     TEST[Testing]
@@ -422,9 +449,15 @@ flowchart TD
     DB --> API
     API --> MATCH
     MATCH --> ROUTE
+    ROUTE --> FARE
+    FARE --> ALLOC
+    ALLOC --> FARE_UI
+    UI --> FARE_UI
+    CONTRACT --> FARE_UI
     CONTRACT --> UI
     API --> UI
     ROUTE --> INT
+    FARE_UI --> INT
     UI --> INT
     INT --> TEST
     TEST --> DEPLOY
@@ -453,6 +486,9 @@ Suggested tracking table:
 | Database foundation & Auth | Backend | COMPLETED | Hosted Supabase PostgreSQL 17.11, PostGIS, Alembic migration 5b69062ab3ef, ES256 JWKS auth |
 | Ride request API & Management | Both | COMPLETED | End-to-end ride request lifecycle, REST endpoints, PostGIS 4326 persistence, React UI |
 | Matching engine | Backend | Not started | Matching test report |
+| Phase 5B Fare Estimation | Backend | Implemented; hosted E2E acceptance pending | Tariff, provenance, estimate disclaimer and regression evidence; hosted authenticated workflow remains unverified |
+| Phase 5C Fare Allocation | Backend | Not started | DEC-013 approval, conservation/privacy/consent tests and allocation report |
+| Phase 6A Fare and Consent UX | Frontend | Not started | Authenticated API-backed fare display, bilateral consent flow and UI verification |
 | Frontend MVP | Frontend | In progress | Core screens (Auth, Profile, Ride Requests complete; Matching next) |
 | Integration | Both | In progress | Supabase Auth, Profile, and Ride Requests integrated live |
 | Deployment | Both | Not started | Live demo |

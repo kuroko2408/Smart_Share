@@ -1,6 +1,6 @@
 import json
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     ROUTING_API_KEY: str = ""
     ROUTING_TIMEOUT_SECONDS: float = 5.0
     OSRM_BASE_URL: str = "https://router.project-osrm.org"
+
+    # Pre-trip fare policy only; it does not assert physical meter quantization.
+    FARE_PULSE_QUANTIZATION_MODE: Literal["CONTINUOUS", "CEILING", "FLOOR"] = (
+        "CONTINUOUS"
+    )
 
     # CORS origins (stored as a list of strings)
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

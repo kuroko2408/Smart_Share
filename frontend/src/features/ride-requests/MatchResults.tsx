@@ -9,6 +9,18 @@ function scorePercent(score: number) {
   return `${Math.round(score * 100)}%`;
 }
 
+function formatRupees(amount: number) {
+  return `₹${amount.toFixed(2)}`;
+}
+
+function routeDistanceLabel(source?: string) {
+  if (source === 'provider_road_network_route') return 'road route';
+  if (source === 'provider_matrix_table') return 'routing matrix estimate';
+  if (source === 'calibrated_tortuosity_fallback') return 'approximate geographic route';
+  if (source === 'geodesic_spheroid') return 'straight-line geographic estimate';
+  return 'estimated route';
+}
+
 export function MatchResults({
   request,
   onClose,
@@ -109,7 +121,7 @@ export function MatchResults({
                     {candidateMetrics ? ` (+${candidateMetrics.detour_distance_km.toFixed(1)} km)` : ''}
                   </span>
                   <span>
-                    {proposal.total_shared_duration_minutes.toFixed(0)} min ({proposal.total_shared_distance_km.toFixed(1)} km road route)
+                    {proposal.total_shared_duration_minutes.toFixed(0)} min ({proposal.total_shared_distance_km.toFixed(1)} km {routeDistanceLabel(proposal.distance_source)})
                   </span>
                 </div>
 
@@ -147,6 +159,28 @@ export function MatchResults({
                       : 'Matrix-estimated distance; load full geometry for turn-by-turn road precision.'}
                   </p>
                 )}
+
+                {proposal.fare_estimate ? <section className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3" aria-label="Pre-trip fare estimate">
+                  <p className="text-xs font-semibold text-gray-800">Estimated pre-trip fare</p>
+                  <div className="mt-1 grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
+                    <p>Shared journey: <strong>{formatRupees(proposal.fare_estimate.shared_journey.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.shared_journey.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
+                    <p>Your solo baseline: <strong>{formatRupees(proposal.fare_estimate.your_solo_baseline.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.your_solo_baseline.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
+                  </div>
+                  {proposal.fare_estimate.shared_journey.surcharge_status === 'CONDITIONAL' && proposal.fare_estimate.shared_journey.fare_range && (
+                    <p className="mt-1 text-xs text-amber-800">
+                      Shared fare range for day/night tariff: {formatRupees(proposal.fare_estimate.shared_journey.fare_range.minimum.estimate)}–{formatRupees(proposal.fare_estimate.shared_journey.fare_range.maximum.estimate)}
+                    </p>
+                  )}
+                  {proposal.fare_estimate.your_solo_baseline.surcharge_status === 'CONDITIONAL' && proposal.fare_estimate.your_solo_baseline.fare_range && (
+                    <p className="mt-1 text-xs text-amber-800">
+                      Your solo baseline day/night range: {formatRupees(proposal.fare_estimate.your_solo_baseline.fare_range.minimum.estimate)}–{formatRupees(proposal.fare_estimate.your_solo_baseline.fare_range.maximum.estimate)}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[11px] text-gray-600">
+                    {proposal.fare_estimate.pulse_quantization_mode} estimate · accuracy: {proposal.fare_estimate.composite_accuracy.replaceAll('_', ' ').toLowerCase()}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-600">{proposal.fare_estimate.disclaimer}</p>
+                </section> : <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Fare estimate is unavailable for this route. The match suggestion remains available with its routing accuracy shown above.</p>}
 
                 {selected?.proposal_id === proposal.proposal_id && (
                   <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-700">

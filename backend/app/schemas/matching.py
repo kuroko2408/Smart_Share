@@ -79,6 +79,39 @@ class PassengerJourneyDetailSchema(BaseModel):
     detour_duration_minutes: float
 
 
+class FareAmountSchema(BaseModel):
+    estimate: float
+    estimate_paise: int
+    rounded_estimate_rupees: int
+
+
+class ConditionalFareRangeSchema(BaseModel):
+    minimum: FareAmountSchema
+    maximum: FareAmountSchema
+
+
+class FareComponentSchema(BaseModel):
+    estimate: float
+    estimate_paise: int
+    rounded_estimate_rupees: int
+    distance_meters: float
+    distance_source: str
+    accuracy_tier: str
+    surcharge_status: Literal["NONE", "APPLIED", "CONDITIONAL"]
+    fare_range: ConditionalFareRangeSchema | None = None
+
+
+class MatchFareEstimateSchema(BaseModel):
+    shared_journey: FareComponentSchema
+    your_solo_baseline: FareComponentSchema
+    composite_accuracy: str
+    fare_model_id: str
+    fare_model_version: str
+    pulse_quantization_mode: Literal["CONTINUOUS", "CEILING", "FLOOR"]
+    excluded_charges: list[str]
+    disclaimer: str
+
+
 class MatchProposalSchema(BaseModel):
     proposal_id: uuid.UUID
     target_request_id: uuid.UUID
@@ -101,6 +134,7 @@ class MatchProposalSchema(BaseModel):
     passenger_metrics: dict[str, PassengerJourneyDetailSchema] = Field(
         default_factory=dict
     )
+    fare_estimate: MatchFareEstimateSchema | None = None
 
 
 class MatchListResponseSchema(BaseModel):

@@ -1,16 +1,18 @@
 # Smart Share — Phase 5B Architectural Decisions Record (ADR)
-## Fare Estimation Models, Cost Allocation & Lifecycle Strategy (Post-Audit Targeted Amendment)
+## Phase 5B Fare Estimation and Phase 5C Allocation Decisions
 
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Decisions Recorded (Pending Product Owner Decision Approvals on DEC-004 & DEC-013)  
+**Status:** DEC-004 pre-trip estimation policy approved; DEC-013 pending final Product Owner approval.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`
 - `docs/phase_5b_fare_estimation_test_strategy.md`
 - `docs/phase_5b_fare_estimation_risk_analysis.md`
 - `docs/phase_5b_final_pre_implementation_audit.md`
+- `docs/phase_5b_product_owner_decision_sheet.md`
+- `docs/05-roadmap.md`
 
 ---
 
@@ -18,14 +20,14 @@
 
 This document records the authoritative architectural decisions for Phase 5B (Fare Estimation Models).
 
-Following the targeted audit conducted on November 8, 2026, all decisions have been amended to resolve metrological pulse quantization ambiguities, enforce the conservative weakest-link accuracy aggregation rule, establish exact half-open surcharge intervals, eliminate naming discrepancies with the Phase 5A codebase, and formalize the economic privacy trade-off for Product Owner review.
+This register records Phase 5B fare-estimation policies and the related Phase 5C cost-allocation decisions. The Product Owner has approved continuous linear integration as the default for pre-trip estimates. This does not resolve the physical meter's pulse behavior or authorize any claim that a pre-trip estimate exactly reproduces a taxi meter. DEC-013 remains a proposed Phase 5C disclosure policy awaiting final Product Owner approval.
 
 ---
 
 ## 2. Decision Records
 
 ### DEC-004: Mumbai Fare Pricing Model & Parameterized Pulse Quantization
-- **Status:** Partially Approved — Pulse Quantization Strategy Pending PO Selection
+- **Status:** **APPROVED for pre-trip estimate default; physical meter pulse behavior remains legally unresolved**
 - **Context:** Mumbai black-and-yellow taxis operate under statutory MMRTA tariffs. While base rates (₹33.00 for 1.5 km, ₹21.90/km, 25% night surcharge) are established, authoritative evidence is inconclusive regarding whether physical taximeters clock a 100m pulse immediately upon entering (Ceiling $\lceil \cdot \rceil$), only upon completing the 100m segment (Floor $\lfloor \cdot \rfloor$), or use continuous distance rates on printed tariff cards.
 - **Decision:**
   1. The pricing model `mumbai_taxi_standard` defines:
@@ -34,10 +36,11 @@ Following the targeted audit conducted on November 8, 2026, all decisions have b
      - **Pulse Slab:** 100 meters (0.10 km) clocked at ₹2.19 per pulse.
      - **Night Surcharge:** 25% extra between 00:00:00 and 04:59:59.999 IST ($[00:00:00, 05:00:00)\text{ IST}$).
      - **Statutory Rounding:** Half-up to the nearest integer Rupee applied to the final gross fare after surcharge.
-  2. **Pulse Quantization Parameterization:** The fare engine parameterizes the pulse quantization strategy via `pulse_quantization_mode: Literal["CONTINUOUS", "CEILING", "FLOOR"]`.
-     - *Default Recommendation:* `"CONTINUOUS"` for pre-trip matching allocations to prevent artificial step-discontinuities in cost-sharing weights $W_A, W_B$.
-  3. Waiting charges (Khatua Committee Clause 4.18.1) and road tolls are excluded from pre-trip estimates and itemized under `excluded_charges`.
-- **Consequences:** Provides exact legal alignment while allowing the Product Owner to select the final meter quantization mode without code rewrites.
+  2. **Pre-trip default:** Use continuous linear integration for fare estimates before travel. This is a Product Owner-selected estimate policy, not a statement about how an approved physical meter quantizes pulses.
+  3. **Configurable meter comparison:** Keep `pulse_quantization_mode: Literal["CONTINUOUS", "CEILING", "FLOOR"]` configurable for comparison or future evidence-based policy changes. The CEILING and FLOOR modes are hypotheses, not verified meter behavior.
+  4. **User-facing distinction:** Label every result as a pre-trip estimate and state that the final fare is the amount shown by the physical meter at trip completion, subject to applicable charges. Never claim that continuous calculation exactly reproduces the meter.
+  5. Waiting charges and road tolls are excluded from pre-trip estimates and itemized under `excluded_charges`.
+- **Consequences:** Phase 5B can implement a clearly labeled pre-trip estimator. Whether the real meter advances on a partial 100m pulse remains unresolved and must not be represented as legally established.
 
 ---
 
@@ -81,7 +84,7 @@ Following the targeted audit conducted on November 8, 2026, all decisions have b
 ---
 
 ### DEC-008: Cost Allocation Method & Hamilton-Hare Equivalence
-- **Status:** Approved
+- **Status:** Approved as the Phase 5C allocation design; implementation follows the Phase 5B fare-estimation engine.
 - **Context:** Cost allocation must conserve every paisa, be non-negative, and provide approximately equal percentage savings.
 - **Decision:**
   1. **Proportional-to-Solo-Fare Allocation:**
@@ -150,21 +153,18 @@ Following the targeted audit conducted on November 8, 2026, all decisions have b
 
 ---
 
-### DEC-013: Intentional Disclosure of Co-Passenger Contribution in Proportional Allocation
-- **Status:** **PENDING PRODUCT OWNER APPROVAL**
+### DEC-013: Exact Co-Passenger Contribution Disclosure and Consent
+- **Status:** **PROPOSED — PENDING FINAL PRODUCT OWNER APPROVAL (Phase 5C gate)**
 - **Context:** Proportional allocation ($S_A / S_B = F_A / F_B$) mathematically allows any user who knows their own share $S_A$, their own solo baseline $F_A$, and the co-passenger contribution $S_B = F_{\text{shared}} - S_A$ to infer the co-passenger's solo baseline fare:
   $$F_B^* = F_A \times \frac{S_B}{S_A}$$
   Accounting for paise rounding, $F_B$ can be estimated to within $\pm 2\text{ paise}$.
 - **Proposed Decision:**
-  1. The product intentionally discloses `co_passenger_contribution` ($S_B$) and `total_shared_fare` ($F_{\text{shared}}$) as part of transparent shared-cost billing.
-  2. This inferential disclosure is acceptable because:
-     - In cab pooling, passengers must verify that their combined payments equal the taxi meter amount ($S_A + S_B = F_{\text{shared}}$).
-     - Direct solo baseline fields, private savings, and private non-shared route coordinates remain strictly redacted.
-     - Candidate pickup and dropoff points are already visible in `MatchCandidateSummarySchema` to enable trip decisions; knowing trip distance reveals no new location data.
-  3. If the Product Owner rejects inferential disclosure, an alternative mitigation must be approved:
-     - *Mitigation Option B (Bucketing):* Round displayed contributions to the nearest ₹10.
-     - *Mitigation Option C (Independent Fixed Quotes):* Display only the viewer's allocated fare, suppressing $S_B$ and $F_{\text{shared}}$.
-- **Consequences:** Requires formal Product Owner sign-off before implementation can be authorized.
+  1. For shared-cost transparency, show each consenting participant the exact proportional contribution of the other participant and the shared estimated fare. Contributions must sum exactly to the shared estimate in paise.
+  2. Explicitly disclose beside the contribution that a participant who knows their own solo baseline and contribution can algebraically infer the other participant's solo baseline, approximately $F_B \approx F_A \times S_B/S_A$ (the audit estimates precision within about two paise for the analyzed example). Combined with already shared trip endpoints or external information, it may support additional distance inference. Consent must disclose this residual privacy risk; consent does not eliminate it.
+  3. Before either participant can view or confirm an exact split, present a plain-language notice and require separate, affirmative consent from both participants. Do not infer consent from general terms, account creation, or silence. A participant who declines must not have their exact contribution revealed; offer the approved bucketed alternative or let the user leave the shared-cost flow. Record consent version, timestamp, participant, and selected disclosure mode using an approved auditable mechanism. Consent may be withdrawn before confirmation; revocation must stop further exact disclosure.
+  4. Direct solo baseline fares, private savings, solo route distance/geometry, and other private route details remain redacted from the co-passenger. Shared itinerary details necessary to evaluate a proposed pooled ride are a separate, purpose-limited disclosure.
+  5. **Alternative if exact disclosure is rejected:** use contribution buckets, initially proposed as nearest ₹10. Bucketing is a reduction in displayed precision, not a guarantee against inference. If exact own-share and total-shared values remain visible, the hidden contribution is still algebraically recoverable; the fallback contract must coarsen or withhold enough linked values to reduce that disclosure and preserve understandable cost accounting.
+- **Consequences:** DEC-013 does not authorize implementation until the Product Owner approves or rejects the proposal. It gates Phase 5C exact allocation display and the dependent Phase 6A consent/UI flow. Phase 5B fare estimation can proceed with no co-passenger contribution fields exposed.
 
 ---
 
@@ -172,13 +172,13 @@ Following the targeted audit conducted on November 8, 2026, all decisions have b
 
 | Decision ID | Domain | Primary Mechanism | Governance Status |
 | :--- | :--- | :--- | :--- |
-| **DEC-004** | Mumbai Tariff | Flag drop ₹33, ₹21.90/km, parameterized quantization | **Partially Approved (Pulse Mode Pending PO)** |
+| **DEC-004** | Mumbai Tariff | ₹33 flag drop, ₹21.90/km, continuous pre-trip estimate default; pulse behavior remains unresolved/configurable | **APPROVED for estimate policy; physical meter claim prohibited** |
 | **DEC-005** | Configuration | In-memory immutable `FareModelRegistry` | Approved |
 | **DEC-006** | Solo Baselines | Phase 5A direct metrics (`direct_a_dist_m`) | Approved |
 | **DEC-007** | Shared & Night Fare | Vehicle journey ($P_1 \to D_2$), $[00:00, 05:00)\text{ IST}$ | Approved |
-| **DEC-008** | Cost Allocation | Proportional allocation, Hamilton-Hare equivalence | Approved |
+| **DEC-008** | Cost Allocation | Proportional allocation, Hamilton-Hare equivalence | Approved design; Phase 5C implementation |
 | **DEC-009** | Precision & Wire | Decimal arithmetic, $0.04\text{ pp}$ tolerance, dual paise wire | Approved |
 | **DEC-010** | Route Provenance | Conservative aggregation rule (`MATRIX_SCREENING`) | Approved |
 | **DEC-011** | Recalculation | Mandatory fare re-estimation on detail enrichment | Approved |
 | **DEC-012** | Model Lifecycle | Semantic versioning and effective date intervals | Approved |
-| **DEC-013** | Economic Privacy | Intentional disclosure of $S_B$; inferential baseline risk | **PENDING PRODUCT OWNER APPROVAL** |
+| **DEC-013** | Economic Privacy | Exact $S_B$ disclosure with explicit residual-risk notice and bilateral opt-in; bucketed alternative | **PROPOSED — PENDING FINAL PRODUCT OWNER APPROVAL** |

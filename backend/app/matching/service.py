@@ -91,6 +91,7 @@ class MatchProposal:
     direct_a_dur_s: float = 0.0
     direct_b_dist_m: float = 0.0
     direct_b_dur_s: float = 0.0
+    direct_distance_source: str = DistanceSource.PROVIDER_MATRIX_TABLE.value
 
 
 def _make_proposal_id(target_id: uuid.UUID, candidate_id: uuid.UUID) -> uuid.UUID:
@@ -513,6 +514,7 @@ async def run_matching(
             direct_a_dur_s=route.duration_direct_a_seconds,
             direct_b_dist_m=route.distance_direct_b_meters,
             direct_b_dur_s=route.duration_direct_b_seconds,
+            direct_distance_source=route.distance_source.value,
         )
 
         # Compute initial per-passenger metrics from matrix legs

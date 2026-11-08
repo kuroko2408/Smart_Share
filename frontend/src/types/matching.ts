@@ -62,6 +62,31 @@ export interface PassengerJourneyDetail {
   detour_duration_minutes: number;
 }
 
+export interface FareAmount {
+  estimate: number;
+  estimate_paise: number;
+  rounded_estimate_rupees: number;
+}
+
+export interface FareComponentEstimate extends FareAmount {
+  distance_meters: number;
+  distance_source: string;
+  accuracy_tier: 'ROAD_ROUTE' | 'MATRIX_SCREENING' | 'CALIBRATED_FALLBACK' | 'GEODESIC_ONLY';
+  surcharge_status: 'NONE' | 'APPLIED' | 'CONDITIONAL';
+  fare_range?: { minimum: FareAmount; maximum: FareAmount } | null;
+}
+
+export interface MatchFareEstimate {
+  shared_journey: FareComponentEstimate;
+  your_solo_baseline: FareComponentEstimate;
+  composite_accuracy: string;
+  fare_model_id: string;
+  fare_model_version: string;
+  pulse_quantization_mode: 'CONTINUOUS' | 'CEILING' | 'FLOOR';
+  excluded_charges: string[];
+  disclaimer: string;
+}
+
 export interface MatchProposal {
   proposal_id: string;
   target_request_id: string;
@@ -82,6 +107,7 @@ export interface MatchProposal {
   route_geometry?: GeoJSONLineString | null;
   route_legs?: RouteLeg[];
   passenger_metrics?: Record<string, PassengerJourneyDetail>;
+  fare_estimate?: MatchFareEstimate | null;
 }
 
 export interface MatchListResponse {

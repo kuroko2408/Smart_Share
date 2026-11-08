@@ -3,13 +3,14 @@
 **Project:** Smart Share — Intelligent Cab-Pooling Platform  
 **Target Geography:** Mumbai, India  
 **Phase:** Phase 5B — Fare Estimation Models  
-**Status:** Test Specification (Pending Product Owner Decision Approvals on DEC-004 & DEC-013)  
+**Status:** Phase 5B estimate tests ready after DEC-004; Phase 5C/6A allocation and consent tests remain gated by DEC-013.
 **Date:** November 8, 2026  
 **Related Documents:**
 - `docs/phase_5b_fare_estimation_design.md`
 - `docs/phase_5b_fare_model_decisions.md`
 - `docs/phase_5b_fare_estimation_risk_analysis.md`
 - `docs/phase_5b_final_pre_implementation_audit.md`
+- `docs/phase_5b_product_owner_decision_sheet.md`
 
 ---
 
@@ -21,7 +22,7 @@ The strategy verifies:
 1. Statutory compliance with Mumbai taxi tariffs across parameterized quantization modes.
 2. Pure mathematical invariants of proportional cost allocation and Hamilton-Hare equivalence.
 3. Provenance and accuracy tier handling under the conservative weakest-link rule.
-4. Strict viewer-centric API privacy and intentional inferential disclosure boundaries.
+4. Phase 5B estimate labeling and privacy boundaries; Phase 5C's exact disclosure, consent, and residual inference behavior after DEC-013 approval.
 5. Exact dual wire format serialization eliminating IEEE 754 floating-point drift.
 
 ---
@@ -47,10 +48,13 @@ The strategy verifies:
 | **TEST-TAR-12** | Night boundary: 05:00:01 | $d = 1000\text{ m}$, 05:00:01 IST | Meter: ₹33 (Multiplier: 1.00) | Day tariff |
 | **TEST-TAR-13** | Invalid negative distance | $d = -50.0\text{ m}$ | Raises `InvalidFareInputError` | Exception check |
 | **TEST-TAR-14** | Naive datetime rejection | `datetime.now()` (naive) | Raises `InvalidTimezoneError` | Exception check |
+| **TEST-TAR-15** | Continuous is pre-trip default | Fractional 100m distance | Uses continuous linear estimate; metadata labels it `PRE_TRIP_ESTIMATE` | Exact model + metadata |
+| **TEST-TAR-16** | No meter-equivalence claim | Any continuous estimate | Notice says physical pulse behavior is unresolved and estimate is not final meter fare | Response text assertion |
+| **TEST-TAR-17** | Estimate/final charge distinction | Any fare response | UI/API distinguishes pre-trip estimate from final physical meter charge | Contract/UI assertion |
 
 ---
 
-### 2.2 Suite 2: Cost Allocation & Economic Invariant Tests
+### 2.2 Suite 2 (Phase 5C): Cost Allocation & Economic Invariant Tests
 *Target Module:* `backend/app/fares/allocator.py`
 
 | Test ID | Scenario Description | Inputs | Expected Output | Assertion Type |
@@ -77,20 +81,25 @@ The strategy verifies:
 
 ---
 
-### 2.4 Suite 4: Viewer-Centric API Authorization & Privacy Tests
-*Target Module:* `backend/app/api/v1/endpoints/matching.py`
+### 2.4 Suite 4 (Phase 5B/5C): Viewer-Centric API Authorization & Privacy Tests
+*Target Module:* Phase 5B estimate response plus the Phase 5C allocation response contract (endpoint/module names to be fixed during implementation design).
 
 | Test ID | Scenario Description | Expected Security & Privacy Behavior |
 | :--- | :--- | :--- |
-| **TEST-SEC-01** | Passenger A Perspective | Response contains $S_A, F_{\text{solo}, A}, \text{savings}_A, F_{\text{shared}}, S_B$. $F_{\text{solo}, B}$, direct distance B, and savings B are omitted. |
-| **TEST-SEC-02** | Passenger B Perspective | Response contains $S_B, F_{\text{solo}, B}, \text{savings}_B, F_{\text{shared}}, S_A$. $F_{\text{solo}, A}$, direct distance A, and savings A are omitted. |
-| **TEST-SEC-03** | Unauthorized Caller | JWT caller does not own target request. Returns HTTP 403 / 404. |
-| **TEST-SEC-04** | Dual Wire Format Integrity | JSON response contains both float fields and integer `_paise` fields with exact equality. |
-| **TEST-SEC-05** | Overlapping Window Range | Departure window crosses midnight. Response returns `surcharge_status = "CONDITIONAL"` and `fare_range`. |
+| **TEST-SEC-01** | Phase 5B Estimate Boundary | Public estimate response contains no co-passenger contribution, solo baseline, savings, or private solo-route data. |
+| **TEST-SEC-02** | Phase 5C Exact Split, Both Consent | Exact contribution appears only after both participants affirmatively consent to the DEC-013 disclosure mode. |
+| **TEST-SEC-03** | Phase 5C Consent Declined/Withdrawn | Exact contribution is not returned or newly displayed; user receives the approved alternative/exit path. |
+| **TEST-SEC-04** | Inference Notice | Exact values are accompanied by a plain-language solo-baseline inference disclosure and note of possible distance inference with linked trip data. |
+| **TEST-SEC-05** | Private Fields Redacted | Co-passenger solo fare, savings, direct solo distance and private route geometry remain absent. |
+| **TEST-SEC-06** | Unauthorized Caller | JWT caller does not own target request. Returns HTTP 403 / 404. |
+| **TEST-SEC-07** | Dual Wire Format Integrity | JSON response contains float and integer `_paise` fields with exact equality. |
+| **TEST-SEC-08** | Overlapping Window Range | Departure window crosses midnight. Response returns `surcharge_status = "CONDITIONAL"` and `fare_range`. |
+| **TEST-SEC-09** | Consent Auditability | Consent record binds participant, consent-text/version, time and disclosure mode; general terms alone do not count. |
+| **TEST-SEC-10** | Bucketed Alternative | If DEC-013 exact disclosure is rejected, buckets and any linked totals are tested for remaining algebraic recoverability. |
 
 ---
 
-### 2.5 Suite 5: Frontend UI & Component Tests
+### 2.5 Suite 5 (Phase 6A): Frontend Fare & Consent UI Tests
 *Target Module:* `frontend/src/features/matching/__tests__/FareBreakdown.test.tsx`
 
 | Test ID | Scenario Description | Expected UI Behavior |
@@ -99,6 +108,9 @@ The strategy verifies:
 | **TEST-UI-02** | Negative Savings Warning | Displays "Detour Surcharge: ₹50" in amber when savings are negative. |
 | **TEST-UI-03** | Conditional Surcharge Banner | Displays "Estimated fare: ₹219 – ₹274 (crossing night tariff)" when conditional. |
 | **TEST-UI-04** | Excluded Charges Disclaimer | Displays disclaimer stating tolls and waiting charges are excluded. |
+| **TEST-UI-05** | Pre-Trip Estimate Label | Clearly separates estimate from final physical meter charge and avoids claiming exact meter reproduction. |
+| **TEST-UI-06** | Explicit Two-Party Consent | Explains the inference risk and requires each participant's affirmative consent before exact contributions display. |
+| **TEST-UI-07** | Decline and Withdrawal | Declining/withdrawing consent hides exact split and offers the approved bucketed alternative or exit. |
 
 ---
 

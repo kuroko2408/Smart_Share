@@ -205,6 +205,14 @@ describe('Ride Request UI Components', () => {
   });
 
   describe('MatchResults', () => {
+    const fareEstimate = {
+      shared_journey: { estimate: 197.25, estimate_paise: 19725, rounded_estimate_rupees: 197, distance_meters: 9000, distance_source: 'provider_road_network_route', accuracy_tier: 'ROAD_ROUTE' as const, surcharge_status: 'CONDITIONAL' as const, fare_range: { minimum: { estimate: 197.25, estimate_paise: 19725, rounded_estimate_rupees: 197 }, maximum: { estimate: 246.56, estimate_paise: 24656, rounded_estimate_rupees: 247 } } },
+      your_solo_baseline: { estimate: 87.75, estimate_paise: 8775, rounded_estimate_rupees: 88, distance_meters: 4000, distance_source: 'provider_matrix_table', accuracy_tier: 'MATRIX_SCREENING' as const, surcharge_status: 'CONDITIONAL' as const, fare_range: { minimum: { estimate: 87.75, estimate_paise: 8775, rounded_estimate_rupees: 88 }, maximum: { estimate: 109.69, estimate_paise: 10969, rounded_estimate_rupees: 110 } } },
+      composite_accuracy: 'MATRIX_SCREENING', fare_model_id: 'mumbai_taxi_standard', fare_model_version: '1.0.0', pulse_quantization_mode: 'CONTINUOUS' as const,
+      excluded_charges: ['tolls', 'waiting time', 'parking'],
+      disclaimer: "Estimated pre-trip fare; continuous estimate does not reproduce the physical taxi meter's pulse behavior. Final charge is determined by the taxi meter.",
+    };
+
     it('starts discovery, shows ranked results, route accuracy, and match explanation', async () => {
       vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
         target_request_id: mockRequest.id,
@@ -239,12 +247,18 @@ describe('Ride Request UI Components', () => {
           routing_notice: 'Approximate geographic fallback',
           compatibility_explanations: ['Pickups are nearby.'],
           created_at: mockRequest.created_at,
+          fare_estimate: fareEstimate,
         }],
       });
       renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
       expect(await screen.findByText(/85% match/i)).toBeInTheDocument();
       expect(screen.getByText(/Approximate geographic fallback/i)).toBeInTheDocument();
+      expect(screen.getByText(/Shared journey:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your solo baseline:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Shared fare range for day\/night tariff/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your solo baseline day\/night range/i)).toBeInTheDocument();
+      expect(screen.getByText(/does not reproduce the physical taxi meter/i)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /Why this suggestion/i }));
       expect(screen.getByText(/departure timing 100%/i)).toBeInTheDocument();
       expect(rideRequestService.findRideMatches).toHaveBeenCalledWith(mockRequest.id);
@@ -296,6 +310,7 @@ describe('Ride Request UI Components', () => {
             { sequence: 2, start_stop_id: 'cand-1', end_stop_id: mockRequest.id, start_label: 'BKC 2', end_label: 'Powai', distance_meters: 8000, distance_km: 8.0, duration_seconds: 900, duration_minutes: 15 },
             { sequence: 3, start_stop_id: mockRequest.id, end_stop_id: 'cand-1', start_label: 'Powai', end_label: 'Powai 2', distance_meters: 700, distance_km: 0.7, duration_seconds: 120, duration_minutes: 2 },
           ],
+          fare_estimate: fareEstimate,
         }],
       });
       renderWithClient(<MatchResults request={mockRequest} onClose={vi.fn()} />);
@@ -337,6 +352,7 @@ describe('Ride Request UI Components', () => {
         compatibility_explanations: ['Directionally compatible.'],
         created_at: mockRequest.created_at,
         route_geometry: null,
+        fare_estimate: fareEstimate,
       };
 
       vi.spyOn(rideRequestService, 'findRideMatches').mockResolvedValue({
