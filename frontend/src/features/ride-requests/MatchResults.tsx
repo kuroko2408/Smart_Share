@@ -179,14 +179,6 @@ export function MatchResults({
                 )}
 
                 {proposal.fare_estimate ? <section className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3" aria-label="Pre-trip fare estimate">
-<<<<<<< HEAD
-                  <p className="text-xs font-semibold text-gray-800">Estimated pre-trip fare</p>
-                  <div className="mt-1 grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
-                    <p>Total shared taxi trip estimate: <strong>{formatRupees(proposal.fare_estimate.shared_journey.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.shared_journey.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
-                    <p>Your separate solo trip estimate: <strong>{formatRupees(proposal.fare_estimate.your_solo_baseline.estimate)}</strong> <span className="text-gray-500">({proposal.fare_estimate.your_solo_baseline.accuracy_tier.replaceAll('_', ' ').toLowerCase()})</span></p>
-<<<<<<< Updated upstream
-=======
-=======
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-gray-800">Estimated pre-trip fare & allocation</p>
                     {proposal.fare_estimate.economic_status === 'SAVINGS' && proposal.fare_estimate.your_savings && proposal.fare_estimate.your_savings.estimate > 0 ? (
@@ -202,8 +194,6 @@ export function MatchResults({
                         Financially unattractive
                       </span>
                     ) : null}
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
                   </div>
 
                   <div className="mt-2 grid gap-1.5 text-xs text-gray-700 sm:grid-cols-3">
@@ -245,17 +235,9 @@ export function MatchResults({
                   <p className="mt-1 text-[11px] text-gray-600">
                     {proposal.fare_estimate.pulse_quantization_mode} estimate · accuracy: {proposal.fare_estimate.composite_accuracy.replaceAll('_', ' ').toLowerCase()}
                   </p>
-<<<<<<< Updated upstream
-                  <p className="mt-1 text-[11px] text-gray-600">The shared fare is the full taxi trip estimate; it is not an individual passenger's contribution.</p>
-=======
-<<<<<<< HEAD
-                  <p className="mt-1 text-[11px] text-gray-600">The shared fare is the full taxi trip estimate; it is not an individual passenger's contribution.</p>
-=======
                   <p className="mt-1 text-[11px] text-gray-500">
                     DEC-013 privacy notice: Co-passenger baseline and contribution remain confidential until bilateral consent. Driver receives 100% of agreed shared fare.
                   </p>
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
                   <p className="mt-1 text-[11px] text-gray-600">{proposal.fare_estimate.disclaimer}</p>
                 </section> : <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Fare estimate is unavailable for this route. The match suggestion remains available with its routing accuracy shown above.</p>}
 

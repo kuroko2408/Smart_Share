@@ -174,8 +174,9 @@ class FareAllocationDisclosureSchema(BaseModel):
 
 
 class MatchDisclosureConsentRequest(BaseModel):
-    consent_text_version: str
+    consent_text_version: str = "DEC-013-2026-11-08-v1"
     disclosure_mode: Literal["EXACT"] = "EXACT"
+    action: Literal["GRANTED", "REVOKED"] = "GRANTED"
 
 
 class MatchProposalSchema(BaseModel):

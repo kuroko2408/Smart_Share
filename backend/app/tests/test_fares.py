@@ -188,10 +188,6 @@ def test_unavailable_fare_source_does_not_invalidate_match_proposal():
     assert schema.fare_estimate is None
 
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
 def test_dec008_allocation_conserves_paise_and_screens_the_reported_negative_case():
     from app.fares.allocation import EconomicClassification, allocate_pairwise_fares
     from app.fares.models import FareAmount
@@ -539,9 +535,36 @@ def test_exact_disclosure_is_absent_until_both_participants_consent():
     from app.api.v1.endpoints.matching import _proposal_to_schema
     from app.fares.consent import ProposalConsentState
     from app.fares.disclosure import CONSENT_NOTICE
-<<<<<<< Updated upstream
-=======
-=======
+
+    proposal = _proposal(
+        datetime.fromisoformat("2026-11-08T10:00:00+05:30"),
+        datetime.fromisoformat("2026-11-08T10:30:00+05:30"),
+    )
+    fares = estimate_match_fare(proposal)
+    no_consent = ProposalConsentState(
+        {proposal.target_request_id: False, proposal.candidate_request_id: False}
+    )
+    schema = _proposal_to_schema(proposal, fare_domain=fares, consent_state=no_consent)
+    assert schema.fare_allocation_disclosure is not None
+    assert schema.fare_allocation_disclosure.allocation is None
+    assert CONSENT_NOTICE in schema.fare_allocation_disclosure.consent_notice
+
+    both = ProposalConsentState(
+        {proposal.target_request_id: True, proposal.candidate_request_id: True}
+    )
+    approved = _proposal_to_schema(proposal, fare_domain=fares, consent_state=both)
+    allocation = approved.fare_allocation_disclosure.allocation
+    assert allocation is not None
+    assert (
+        allocation.your_contribution_paise + allocation.co_passenger_contribution_paise
+        == allocation.shared_total_paise
+    )
+    wire = approved.model_dump(mode="json")
+    assert "co_passenger_solo_baseline" not in str(wire)
+    assert "candidate_solo" not in str(wire)
+    assert "co_passenger_savings" not in str(wire)
+
+
 def test_allocation_invariants_and_proportional_weighting():
     from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
     from app.fares.models import EconomicStatus
@@ -719,44 +742,12 @@ def test_allocation_zero_and_invalid_inputs():
 
 def test_dec013_bilateral_consent_toggling():
     from app.api.v1.endpoints.matching import _proposal_to_schema
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
     from app.fares.service import estimate_match_fare
 
     proposal = _proposal(
         datetime.fromisoformat("2026-11-08T10:00:00+05:30"),
         datetime.fromisoformat("2026-11-08T10:30:00+05:30"),
     )
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
-    fares = estimate_match_fare(proposal)
-    no_consent = ProposalConsentState(
-        {proposal.target_request_id: False, proposal.candidate_request_id: False}
-    )
-    schema = _proposal_to_schema(proposal, fare_domain=fares, consent_state=no_consent)
-    assert schema.fare_allocation_disclosure is not None
-    assert schema.fare_allocation_disclosure.allocation is None
-    assert CONSENT_NOTICE in schema.fare_allocation_disclosure.consent_notice
-
-    both = ProposalConsentState(
-        {proposal.target_request_id: True, proposal.candidate_request_id: True}
-    )
-    approved = _proposal_to_schema(proposal, fare_domain=fares, consent_state=both)
-    allocation = approved.fare_allocation_disclosure.allocation
-    assert allocation is not None
-    assert (
-        allocation.your_contribution_paise + allocation.co_passenger_contribution_paise
-        == allocation.shared_total_paise
-    )
-    wire = approved.model_dump(mode="json")
-    assert "co_passenger_solo_baseline" not in str(wire)
-    assert "candidate_solo" not in str(wire)
-    assert "co_passenger_savings" not in str(wire)
-<<<<<<< Updated upstream
-=======
-=======
 
     # Without bilateral consent (default)
     est_unconsented = estimate_match_fare(proposal, bilateral_consent=False)
@@ -785,5 +776,3 @@ def test_dec013_bilateral_consent_toggling():
         + schema_consented.co_passenger_contribution.estimate_paise
         == schema_consented.shared_journey.estimate_paise
     )
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes

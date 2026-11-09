@@ -99,14 +99,6 @@ class MatchFareEstimate:
     model_id: str
     model_version: str
     pulse_quantization_mode: PulseQuantizationMode
-<<<<<<< Updated upstream
     minimum_fare_paise: int
     viewer_is_canonical_passenger_a: bool
-=======
-<<<<<<< HEAD
-    minimum_fare_paise: int
-    viewer_is_canonical_passenger_a: bool
-=======
     allocation: FareAllocationResult | None = None
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes

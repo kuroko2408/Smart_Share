@@ -261,23 +261,12 @@ describe('Ride Request UI Components', () => {
       fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
       expect(await screen.findByText(/85% match/i)).toBeInTheDocument();
       expect(screen.getByText(/Approximate geographic fallback/i)).toBeInTheDocument();
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
-      expect(screen.getByText(/Total shared taxi trip estimate:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Your separate solo trip estimate:/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/Not a money-saving option/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Taking two separate rides is estimated to cost less overall/i)).toBeInTheDocument();
-<<<<<<< Updated upstream
-=======
-=======
       expect(screen.getByText(/Shared journey:/i)).toBeInTheDocument();
       expect(screen.getByText(/Your solo baseline:/i)).toBeInTheDocument();
       expect(screen.getByText(/Your allocated share:/i)).toBeInTheDocument();
       expect(screen.getByText(/DEC-013 privacy notice/i)).toBeInTheDocument();
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
+      expect(screen.getAllByText(/Not a money-saving option/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Taking two separate rides is estimated to cost less overall/i)).toBeInTheDocument();
       expect(screen.getByText(/Shared fare range for day\/night tariff/i)).toBeInTheDocument();
       expect(screen.getByText(/Your solo baseline day\/night range/i)).toBeInTheDocument();
       expect(screen.getByText(/does not reproduce the physical taxi meter/i)).toBeInTheDocument();

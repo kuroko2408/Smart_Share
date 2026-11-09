@@ -20,10 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db as get_db_session
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
 from app.fares.allocation import assess_match_economics
 from app.fares.consent import (
     ProposalConsentState,
@@ -35,10 +31,7 @@ from app.fares.disclosure import (
     CONSENT_TEXT_VERSION,
     disclosure_subject_fingerprint,
 )
-from app.fares.models import FareComponentEstimate, MatchFareEstimate
-=======
 from app.fares.models import FareAmount, FareComponentEstimate, MatchFareEstimate
->>>>>>> 3dfc1f3 (5C)
 from app.fares.service import estimate_match_fare
 from app.matching.service import (
     MatchProposal,
@@ -301,8 +294,21 @@ def _proposal_to_schema(
     economic_assessment = None
     disclosure = None
     try:
+        is_bilateral = bool(
+            consent_state
+            and consent_state.by_request.get(p.target_request_id, False)
+            and consent_state.by_request.get(p.candidate_request_id, False)
+        )
         if fare_domain is _UNSET:
-            fare_domain = estimate_match_fare(p)
+            fare_domain = estimate_match_fare(p, bilateral_consent=is_bilateral)
+        elif (
+            fare_domain is not None
+            and is_bilateral
+            and not (
+                fare_domain.allocation and fare_domain.allocation.bilateral_consent
+            )
+        ):
+            fare_domain = estimate_match_fare(p, bilateral_consent=True)
         if fare_domain is None:
             raise ValueError("Fare estimate is unavailable")
         fare_estimate = _fare_to_schema(fare_domain)
@@ -623,6 +629,39 @@ async def get_proposal_detail(
     )
 
 
+@proposal_router.get(
+    "/{proposal_id}/disclosure-consent",
+    response_model=DataResponse[FareAllocationDisclosureSchema],
+    summary="Get current exact fare disclosure consent status for a match proposal",
+)
+async def get_exact_disclosure_consent(
+    proposal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> DataResponse[FareAllocationDisclosureSchema]:
+    proposal = await _find_current_owned_proposal(
+        proposal_id, request_id, db, current_user
+    )
+    try:
+        fares = estimate_match_fare(proposal)
+    except (ValueError, LookupError, ArithmeticError) as exc:
+        logger.warning(
+            "Cannot get disclosure consent status for proposal %s (%s)",
+            proposal_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Fare estimate is unavailable for this proposal.",
+        ) from exc
+    state = await _consent_state_for_proposal(db, proposal, fares)
+    return DataResponse(
+        data=_allocation_disclosure_to_schema(proposal, fares, state),
+        message="Exact disclosure consent status retrieved.",
+    )
+
+
 @proposal_router.post(
     "/{proposal_id}/disclosure-consent",
     response_model=DataResponse[FareAllocationDisclosureSchema],
@@ -635,7 +674,8 @@ async def grant_exact_disclosure_consent(
     db: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
 ) -> DataResponse[FareAllocationDisclosureSchema]:
-    if body.consent_text_version != CONSENT_TEXT_VERSION:
+    action = body.action.upper()
+    if action == "GRANTED" and body.consent_text_version != CONSENT_TEXT_VERSION:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Consent notice version is no longer current. Review the latest notice.",
@@ -661,12 +701,17 @@ async def grant_exact_disclosure_consent(
         participant_request_id=request_id,
         participant_user_id=current_user.id,
         subject_fingerprint=disclosure_subject_fingerprint(fares),
-        action="GRANTED",
+        action=action,
     )
     state = await _consent_state_for_proposal(db, proposal, fares)
+    msg = (
+        "Your exact disclosure consent has been recorded."
+        if action == "GRANTED"
+        else "Your exact disclosure consent has been withdrawn."
+    )
     return DataResponse(
         data=_allocation_disclosure_to_schema(proposal, fares, state),
-        message="Your exact disclosure consent has been recorded.",
+        message=msg,
     )
 
 

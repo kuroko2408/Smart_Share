@@ -300,6 +300,11 @@ async def test_unauthenticated_access_rejected(
         ("GET", f"/api/v1/ride-requests/{random_id}/matches", None),
         ("GET", f"/api/v1/matches/{uuid.uuid4()}?request_id={random_id}", None),
         (
+            "GET",
+            f"/api/v1/matches/{uuid.uuid4()}/disclosure-consent?request_id={random_id}",
+            None,
+        ),
+        (
             "POST",
             f"/api/v1/matches/{uuid.uuid4()}/disclosure-consent?request_id={random_id}",
             {

@@ -96,6 +96,16 @@ export async function fetchMatchProposal(
   return response.data;
 }
 
+export async function fetchFareDisclosureConsent(
+  requestId: string,
+  proposalId: string
+) {
+  const response = await apiClient.get<{ data: MatchProposal['fare_allocation_disclosure'] }>(
+    `/matches/${proposalId}/disclosure-consent?request_id=${encodeURIComponent(requestId)}`
+  );
+  return response.data;
+}
+
 export async function grantFareDisclosureConsent(
   requestId: string,
   proposalId: string,

@@ -2044,19 +2044,8 @@ async def test_match_discovery_api_includes_viewer_scoped_fare_estimate() -> Non
     assert not any(
         forbidden in serialized_proposal
         for forbidden in (
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
-            "your_contribution_paise",
             "co_passenger_contribution_paise",
-            "your_savings_paise",
             "co_passenger_savings",
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
             "co_passenger_solo",
             "candidate_solo",
         )

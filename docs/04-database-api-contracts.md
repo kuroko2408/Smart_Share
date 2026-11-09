@@ -495,11 +495,7 @@ The backend:
 
 Each proposal includes a `fare_estimate` object with `shared_journey`, `your_solo_baseline`, `your_allocation` (with `allocated_fare`, `savings`, `savings_percent`, and `economic_status`), component distance provenance and accuracy tiers, `composite_accuracy`, tariff model version, configured pulse strategy, a conditional day/night range when relevant, excluded charges, and the required estimate disclaimer. Amounts include rupee display value, integer paise, and whole-rupee rounded estimate.
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
-The response is scoped to the authenticated request owner. It never contains the candidate's solo fare baseline, solo-route details, or savings. It includes a coarse economic classification (`POSITIVE`, `BREAK_EVEN`, `NEGATIVE`, or `CONDITIONAL`) with an explanation; a negative classification is a warning and is not advertised as money saving.
+The response is scoped to the authenticated request owner. Under DEC-013, it never contains the candidate's solo fare baseline, solo-route details, or private savings, and candidate contribution is withheld unless affirmative bilateral consent is recorded. `passenger_metrics` contains only the request owner's solo-distance metric; the shared stop sequence and proposal detour information remain available to assess the pooled itinerary. It includes a coarse economic classification (`POSITIVE`, `BREAK_EVEN`, `NEGATIVE`, or `CONDITIONAL`) with an explanation; a negative classification is a warning and is not advertised as money saving.
 
 `fare_allocation_disclosure` contains the DEC-013 notice and each participant's consent status. Exact contribution fields are absent until both proposal participants have separately consented to the current text version and the same current fare snapshot. For a fixed day or night tariff, `allocation` contains the whole shared-trip estimate, both exact contributions, and only the authenticated viewer's own savings and percentage. For a departure window crossing the night boundary, `allocation` is null and `conditional_scenarios` contains separate DAY and NIGHT contribution estimates; no single midpoint savings is represented as exact. It never contains the other passenger's solo baseline or individual savings. Contributions and savings carry integer-paise fields for exact reconciliation.
 
@@ -507,16 +503,11 @@ The following authenticated endpoints require the currently valid proposal and a
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Affirm exact disclosure after reviewing the current notice; body includes `consent_text_version` and `disclosure_mode: "EXACT"` |
+| GET | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Retrieve current DEC-013 consent status and exact disclosure if bilateral consent is active |
+| POST | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Affirm or update exact disclosure after reviewing current notice; body includes `consent_text_version`, `disclosure_mode: "EXACT"`, and optional `action: "GRANTED" \| "REVOKED"` |
 | DELETE | `/matches/{proposal_id}/disclosure-consent?request_id={owned_request_id}` | Revoke this participant's consent; exact values are withheld until bilateral consent is active again |
 
 Consent is recorded as append-only events with participant request/user, notice version, mode, action, and timestamp. The additive migration is `c5d013c0a501`; it must be applied before enabling these routes in an environment. A stale or changed fare snapshot invalidates the previous grant.
-<<<<<<< Updated upstream
-=======
-=======
-The response is scoped to the authenticated request owner. Under DEC-013, it does not contain the candidate's solo fare baseline or private savings, and candidate contribution is null unless affirmative bilateral consent is recorded. `passenger_metrics` contains only the request owner's solo-distance metric; the shared stop sequence and proposal detour information remain available to assess the pooled itinerary.
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
 
 ### 13.2 Retrieve Match
 

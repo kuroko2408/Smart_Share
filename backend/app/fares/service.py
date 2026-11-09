@@ -118,15 +118,7 @@ def estimate_match_fare(
     config: FareModelConfig | None = None,
     bilateral_consent: bool = False,
 ) -> MatchFareEstimate:
-<<<<<<< Updated upstream
-    """Estimate shared and both solo fares; the candidate baseline stays internal."""
-=======
-<<<<<<< HEAD
-    """Estimate shared and both solo fares; the candidate baseline stays internal."""
-=======
-    """Estimate shared fare, the request owner's solo baseline, and fair cost allocation."""
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
+    """Estimate shared fare, both solo baselines, and fair cost allocation."""
     if proposal.shared_departure_end < proposal.shared_departure_start:
         raise ValueError("Shared departure window end precedes start")
     mode = mode or PulseQuantizationMode(get_settings().FARE_PULSE_QUANTIZATION_MODE)
@@ -178,17 +170,8 @@ def estimate_match_fare(
         model_id=config.model_id,
         model_version=config.version,
         pulse_quantization_mode=mode,
-<<<<<<< Updated upstream
         minimum_fare_paise=int(config.base_fare * 100),
         viewer_is_canonical_passenger_a=str(proposal.target_request_id)
         < str(proposal.candidate_request_id),
-=======
-<<<<<<< HEAD
-        minimum_fare_paise=int(config.base_fare * 100),
-        viewer_is_canonical_passenger_a=str(proposal.target_request_id)
-        < str(proposal.candidate_request_id),
-=======
         allocation=allocation,
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
     )

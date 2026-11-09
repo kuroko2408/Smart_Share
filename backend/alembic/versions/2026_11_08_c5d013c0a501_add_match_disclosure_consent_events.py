@@ -24,7 +24,9 @@ def upgrade() -> None:
         "match_disclosure_consent_events",
         sa.Column("event_id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("proposal_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("participant_request_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column(
+            "participant_request_id", postgresql.UUID(as_uuid=True), nullable=False
+        ),
         sa.Column("participant_user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("action", sa.String(length=16), nullable=False),
         sa.Column("disclosure_mode", sa.String(length=16), nullable=False),

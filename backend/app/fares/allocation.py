@@ -1,35 +1,24 @@
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
-"""Pairwise proportional fare allocation and economic benefit assessment.
+"""Pairwise proportional fare allocation and economic benefit assessment (Phase 5C & Phase 6A / DEC-008 & DEC-013).
 
-This module consumes Phase 5B estimates. Exact allocation disclosures are
-serialized only after both participants affirmatively consent under DEC-013.
-<<<<<<< Updated upstream
-=======
-=======
-"""Fair solo-fare proportional fare allocation service (Phase 5C / DEC-008).
-
-Calculates deterministic passenger contributions and savings using each passenger's
-own solo fare as their allocation weight. Uses Decimal arithmetic and integer paise
-throughout, with deterministic residual rounding preserving the agreed shared fare
-down to 0.0000 paise.
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
+Consumes Phase 5B estimates. Calculates deterministic passenger contributions and savings
+using each passenger's own solo fare as their allocation weight. Exact allocation disclosures
+are serialized only after both participants affirmatively consent under DEC-013.
 """
 
 from __future__ import annotations
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
-from app.fares.models import FareAmount, FareComponentEstimate, MatchFareEstimate
+from app.fares.models import (
+    EconomicStatus,
+    FareAllocationResult,
+    FareAmount,
+    FareComponentEstimate,
+    MatchFareEstimate,
+    PassengerAllocation,
+)
 
 
 class AllocationError(ValueError):
@@ -51,7 +40,7 @@ ECONOMIC_ROUNDING_TOLERANCE_PAISE = 1
 
 
 @dataclass(frozen=True)
-class PassengerAllocation:
+class PairwisePassengerShare:
     solo_baseline: Decimal
     contribution: Decimal
     savings: Decimal
@@ -66,8 +55,8 @@ class PairwiseFareAllocation:
     combined_savings_percent: Decimal
     detour_surcharge: Decimal
     classification: EconomicClassification
-    passenger_a: PassengerAllocation
-    passenger_b: PassengerAllocation
+    passenger_a: PairwisePassengerShare
+    passenger_b: PairwisePassengerShare
 
 
 @dataclass(frozen=True)
@@ -136,12 +125,12 @@ def allocate_pairwise_fares(
     def money(paise: int) -> Decimal:
         return (Decimal(paise) / Decimal(100)).quantize(Decimal("0.01"))
 
-    def passenger(solo_p: int, share_p: int, savings_p: int) -> PassengerAllocation:
+    def passenger(solo_p: int, share_p: int, savings_p: int) -> PairwisePassengerShare:
         solo_value = money(solo_p)
         percentage = (Decimal(savings_p) / Decimal(solo_p) * Decimal(100)).quantize(
             Decimal("0.0001"), rounding=ROUND_HALF_UP
         )
-        return PassengerAllocation(
+        return PairwisePassengerShare(
             solo_baseline=solo_value,
             contribution=money(share_p),
             savings=money(savings_p),
@@ -265,17 +254,6 @@ def assess_match_economics(
             scenarios=scenarios,
         )
     return allocation, assessment
-<<<<<<< Updated upstream
-=======
-=======
-from decimal import ROUND_HALF_UP, Decimal
-
-from app.fares.models import (
-    EconomicStatus,
-    FareAllocationResult,
-    FareAmount,
-    PassengerAllocation,
-)
 
 
 def paise_to_fare_amount(paise: int) -> FareAmount:
@@ -410,5 +388,3 @@ def calculate_fare_allocation(
         passenger_b=pass_b,
         bilateral_consent=bilateral_consent,
     )
->>>>>>> 3dfc1f3 (5C)
->>>>>>> Stashed changes
