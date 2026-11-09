@@ -76,9 +76,25 @@ export interface FareComponentEstimate extends FareAmount {
   fare_range?: { minimum: FareAmount; maximum: FareAmount } | null;
 }
 
+export interface PassengerFareAllocation {
+  allocated_fare: FareAmount;
+  savings: FareAmount;
+  savings_percent: number;
+  is_saving: boolean;
+  economic_status: 'SAVINGS' | 'BREAK_EVEN' | 'UNATTRACTIVE';
+  is_economically_beneficial: boolean;
+}
+
 export interface MatchFareEstimate {
   shared_journey: FareComponentEstimate;
   your_solo_baseline: FareComponentEstimate;
+  your_allocation?: PassengerFareAllocation | null;
+  your_allocated_fare?: FareAmount | null;
+  your_savings?: FareAmount | null;
+  your_savings_percent?: number;
+  economic_status?: 'SAVINGS' | 'BREAK_EVEN' | 'UNATTRACTIVE';
+  is_economically_beneficial?: boolean;
+  co_passenger_contribution?: FareAmount | null;
   composite_accuracy: string;
   fare_model_id: string;
   fare_model_version: string;

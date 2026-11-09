@@ -1,3 +1,7 @@
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
 # Phase 5C Implementation Report
 
 **Status:** CONDITIONAL PASS — allocation and consent-gated API/UI behavior are implemented and automated regressions pass. Hosted database migration and two-user authenticated verification remain outstanding.
@@ -72,3 +76,94 @@ One additive migration creates `match_disclosure_consent_events`, including fore
 - One existing PostGIS test is skipped because hosted PostGIS is unreachable or network-restricted in the sandbox.
 
 See [testing report](phase5c-testing-report.md) and [integration report](phase5c-integration-report.md) for command-level evidence and final acceptance limits.
+<<<<<<< Updated upstream
+=======
+=======
+# Phase 5C Fare Allocation & Passenger Savings — Implementation Report
+
+**Status:** Implemented (Local Verification Complete; Hosted Two-User Acceptance Pending)  
+**Date:** November 9, 2026  
+**Scope:** Solo-fare proportional fare allocation (DEC-008), viewer-scoped privacy protections (DEC-013), deterministic residual paise conservation, and financial eligibility outcomes (SAVINGS, BREAK_EVEN, UNATTRACTIVE).
+
+---
+
+## 1. Executive Summary & Design Decisions Applied
+
+Phase 5C delivers fair cost allocation for black-and-yellow taxi carpooling in Mumbai, consuming Phase 5B pre-trip fare estimates and generating deterministic contributions and savings.
+
+### 1.1 Proportional-to-Solo-Fare Allocation (DEC-008)
+- Each passenger's estimated solo baseline fare serves as their allocation weight:
+  $$W_A = \frac{\text{solo\_fare}_A}{\text{combined\_solo\_fare}}, \qquad W_B = \frac{\text{solo\_fare}_B}{\text{combined\_solo\_fare}}$$
+  $$\text{combined\_solo\_fare} = \text{solo\_fare}_A + \text{solo\_fare}_B$$
+- Higher solo fare commuters contribute proportionally more, while shorter/lower solo fare commuters contribute less. Arbitrary equal splits are prohibited when solo fares differ.
+
+### 1.2 Exact Sum Conservation & Driver Gross Fare Invariance
+- Driver receives 100% of the agreed shared trip fare:
+  $$\text{contribution}_A + \text{contribution}_B \equiv \text{shared\_fare}$$
+- Driver's agreed gross fare is **never** reduced to manufacture passenger savings.
+- Platform-funded discounts and match-score promotional discounts are **not** implemented.
+- Deterministic residual rounding (`ROUND_HALF_UP` on Passenger A, remainder to Passenger B) guarantees sum conservation down to 0 paise without IEEE 754 drift.
+
+### 1.3 Economic Outcomes & Savings Guarantee
+- Economic outcomes are classified into three strict states:
+  1. **SAVINGS (`shared_fare < combined_solo_fare`):** Both passengers pay less than their own solo fare ($\text{savings}_A > 0$, $\text{savings}_B > 0$, subject to paise rounding). Marked as economically beneficial.
+  2. **BREAK_EVEN (`shared_fare == combined_solo_fare`):** Neither passenger is told they save money ($\text{savings} = 0$, `is_saving = False`).
+  3. **UNATTRACTIVE (`shared_fare > combined_solo_fare`):** Shared journey is more expensive than riding solo. Negative combined savings are truthfully reported (`economic_status = UNATTRACTIVE`, `is_economically_beneficial = False`). Proposal compatibility is preserved while clearly flagging economic unattractiveness.
+
+### 1.4 Privacy & DEC-013 Bilateral Consent
+- In accordance with DEC-013:
+  - Passenger B's solo baseline, individual savings, and exact contribution are **never** disclosed to Passenger A without bilateral consent.
+  - Direct solo baselines and private savings remain redacted even when bilateral consent is granted (only exact contribution is intentionally disclosed upon consent).
+  - Unilateral response exposure is strictly viewer-scoped: the authenticated rider sees only their own solo baseline, allocated share, individual savings, and the total shared trip fare.
+
+---
+
+## 2. Changed Files
+
+### Backend
+- [`backend/app/fares/models.py`](file:///home/asta/Projects/Smart_Share/backend/app/fares/models.py): Added `EconomicStatus` enum (`SAVINGS`, `BREAK_EVEN`, `UNATTRACTIVE`), `PassengerAllocation`, and `FareAllocationResult` dataclasses; updated `MatchFareEstimate` with `allocation`.
+- [`backend/app/fares/allocation.py`](file:///home/asta/Projects/Smart_Share/backend/app/fares/allocation.py) *(new)*: Pure Decimal/integer-paise allocation engine implementing proportional weighting, residual rounding, non-negative bounds, and economic classification.
+- [`backend/app/fares/service.py`](file:///home/asta/Projects/Smart_Share/backend/app/fares/service.py): Integrated `calculate_fare_allocation` into `estimate_match_fare()` with `bilateral_consent` gating.
+- [`backend/app/schemas/matching.py`](file:///home/asta/Projects/Smart_Share/backend/app/schemas/matching.py): Added `PassengerFareAllocationSchema` and updated `MatchFareEstimateSchema` with viewer-scoped allocation, savings, and optional consented fields.
+- [`backend/app/api/v1/endpoints/matching.py`](file:///home/asta/Projects/Smart_Share/backend/app/api/v1/endpoints/matching.py): Serialized viewer-scoped allocation to API schemas while strictly enforcing DEC-013 co-passenger redaction.
+- [`backend/app/tests/test_fares.py`](file:///home/asta/Projects/Smart_Share/backend/app/tests/test_fares.py): Added 6 extensive unit tests verifying all 12 mathematical and financial invariants, break-even, dissavings, micro-fare rounding bounds, zero/negative inputs, and DEC-013 consent toggling.
+- [`backend/app/tests/test_matching_phase5a.py`](file:///home/asta/Projects/Smart_Share/backend/app/tests/test_matching_phase5a.py): Replaced obsolete field-absence assertions with viewer-scoped disclosure and co-passenger redaction assertions.
+
+### Frontend
+- [`frontend/src/types/matching.ts`](file:///home/asta/Projects/Smart_Share/frontend/src/types/matching.ts): Added `PassengerFareAllocation` interface and updated `MatchFareEstimate` with allocation fields.
+- [`frontend/src/features/ride-requests/MatchResults.tsx`](file:///home/asta/Projects/Smart_Share/frontend/src/features/ride-requests/MatchResults.tsx): Updated proposal card to clearly distinguish original shared fare, user's solo estimate, allocated share, savings badge, and DEC-013 privacy notice.
+- [`frontend/src/features/ride-requests/__tests__/RideRequests.test.tsx`](file:///home/asta/Projects/Smart_Share/frontend/src/features/ride-requests/__tests__/RideRequests.test.tsx): Updated mock proposals and verified allocation display.
+
+### Documentation
+- [`docs/04-database-api-contracts.md`](file:///home/asta/Projects/Smart_Share/docs/04-database-api-contracts.md): Updated API response documentation to specify Phase 5C allocation and savings fields.
+- [`docs/05-roadmap.md`](file:///home/asta/Projects/Smart_Share/docs/05-roadmap.md): Updated Phase 5C milestone status.
+- [`docs/phase5c-implementation-report.md`](file:///home/asta/Projects/Smart_Share/docs/phase5c-implementation-report.md): This report.
+- [`docs/phase5c-testing-report.md`](file:///home/asta/Projects/Smart_Share/docs/phase5c-testing-report.md): Detailed verification test results.
+- [`docs/phase5c-integration-report.md`](file:///home/asta/Projects/Smart_Share/docs/phase5c-integration-report.md): Integration and architecture contract report.
+
+---
+
+## 3. Local Verification Results
+
+All local automated tests, linters, type checks, and production builds completed with 100% pass rates:
+
+| Verification Suite | Tool | Scope | Result | Details |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend Unit Tests** | `pytest` 9.2.0 | `backend/app/tests/` | **160 passed, 1 skipped** | All tariff, detour, routing, and allocation tests passed in 10.2s |
+| **Backend Code Quality** | `ruff check` | `backend/` | **0 errors** | Clean import sorting, no unused variables or style violations |
+| **Backend Formatting** | `ruff format --check` | `backend/` | **73 files clean** | Exact PEP 8 / black-compatible formatting |
+| **Frontend Tests** | `vitest` 4.1.12 | `frontend/src/` | **30 passed (7 files)** | Smoke, auth, profile, ride requests, matching allocation |
+| **Frontend Linter** | `oxlint` | `frontend/src/` | **0 errors, 0 warnings** | 34 files checked with 96 rules |
+| **Frontend Typecheck** | `tsc --noEmit` | `frontend/` | **0 type errors** | Strict TypeScript compilation clean |
+| **Frontend Build** | `vite build` | Production client | **Success** | Production bundle generated in 256ms (125 kB gzip) |
+
+---
+
+## 4. Distinction Between Local Verification & Hosted Acceptance
+
+> [!NOTE]
+> **Verification Boundary:**
+> - **Local Automated Verification (COMPLETE):** All mathematical allocation algorithms, sum conservation down to 0 paise, residual rounding, break-even/dissavings states, DEC-013 viewer privacy scoping, API schemas, and frontend presentation are fully verified by automated tests.
+> - **Hosted Multi-User Acceptance (PENDING):** Live end-to-end verification involving two separate authenticated commuter accounts interacting across the deployed Supabase/Vercel/FastAPI infrastructure to test bilateral consent workflows remains pending live deployment. No database migrations were executed during this phase.
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes

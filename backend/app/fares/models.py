@@ -7,6 +7,12 @@ from decimal import Decimal
 from enum import StrEnum
 
 
+class EconomicStatus(StrEnum):
+    SAVINGS = "SAVINGS"
+    BREAK_EVEN = "BREAK_EVEN"
+    UNATTRACTIVE = "UNATTRACTIVE"
+
+
 class PulseQuantizationMode(StrEnum):
     CONTINUOUS = "CONTINUOUS"
     CEILING = "CEILING"
@@ -63,6 +69,27 @@ class FareComponentEstimate:
 
 
 @dataclass(frozen=True)
+class PassengerAllocation:
+    solo_fare: FareAmount
+    allocated_fare: FareAmount
+    savings: FareAmount
+    savings_percent: float
+    is_saving: bool
+
+
+@dataclass(frozen=True)
+class FareAllocationResult:
+    total_shared_fare: FareAmount
+    combined_solo_fare: FareAmount
+    combined_savings: FareAmount
+    economic_status: EconomicStatus
+    is_economically_beneficial: bool
+    passenger_a: PassengerAllocation
+    passenger_b: PassengerAllocation
+    bilateral_consent: bool = False
+
+
+@dataclass(frozen=True)
 class MatchFareEstimate:
     shared_journey: FareComponentEstimate
     your_solo_baseline: FareComponentEstimate
@@ -72,5 +99,14 @@ class MatchFareEstimate:
     model_id: str
     model_version: str
     pulse_quantization_mode: PulseQuantizationMode
+<<<<<<< Updated upstream
     minimum_fare_paise: int
     viewer_is_canonical_passenger_a: bool
+=======
+<<<<<<< HEAD
+    minimum_fare_paise: int
+    viewer_is_canonical_passenger_a: bool
+=======
+    allocation: FareAllocationResult | None = None
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes

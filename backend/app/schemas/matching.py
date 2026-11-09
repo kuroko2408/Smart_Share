@@ -102,9 +102,25 @@ class FareComponentSchema(BaseModel):
     fare_range: ConditionalFareRangeSchema | None = None
 
 
+class PassengerFareAllocationSchema(BaseModel):
+    allocated_fare: FareAmountSchema
+    savings: FareAmountSchema
+    savings_percent: float
+    is_saving: bool
+    economic_status: Literal["SAVINGS", "BREAK_EVEN", "UNATTRACTIVE"]
+    is_economically_beneficial: bool
+
+
 class MatchFareEstimateSchema(BaseModel):
     shared_journey: FareComponentSchema
     your_solo_baseline: FareComponentSchema
+    your_allocation: PassengerFareAllocationSchema | None = None
+    your_allocated_fare: FareAmountSchema | None = None
+    your_savings: FareAmountSchema | None = None
+    your_savings_percent: float = 0.0
+    economic_status: Literal["SAVINGS", "BREAK_EVEN", "UNATTRACTIVE"] = "SAVINGS"
+    is_economically_beneficial: bool = True
+    co_passenger_contribution: FareAmountSchema | None = None
     composite_accuracy: str
     fare_model_id: str
     fare_model_version: str

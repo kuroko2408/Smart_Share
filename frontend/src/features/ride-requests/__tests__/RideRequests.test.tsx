@@ -209,6 +209,11 @@ describe('Ride Request UI Components', () => {
     const fareEstimate = {
       shared_journey: { estimate: 197.25, estimate_paise: 19725, rounded_estimate_rupees: 197, distance_meters: 9000, distance_source: 'provider_road_network_route', accuracy_tier: 'ROAD_ROUTE' as const, surcharge_status: 'CONDITIONAL' as const, fare_range: { minimum: { estimate: 197.25, estimate_paise: 19725, rounded_estimate_rupees: 197 }, maximum: { estimate: 246.56, estimate_paise: 24656, rounded_estimate_rupees: 247 } } },
       your_solo_baseline: { estimate: 87.75, estimate_paise: 8775, rounded_estimate_rupees: 88, distance_meters: 4000, distance_source: 'provider_matrix_table', accuracy_tier: 'MATRIX_SCREENING' as const, surcharge_status: 'CONDITIONAL' as const, fare_range: { minimum: { estimate: 87.75, estimate_paise: 8775, rounded_estimate_rupees: 88 }, maximum: { estimate: 109.69, estimate_paise: 10969, rounded_estimate_rupees: 110 } } },
+      your_allocated_fare: { estimate: 65.50, estimate_paise: 6550, rounded_estimate_rupees: 66 },
+      your_savings: { estimate: 22.25, estimate_paise: 2225, rounded_estimate_rupees: 22 },
+      your_savings_percent: 25.4,
+      economic_status: 'SAVINGS' as const,
+      is_economically_beneficial: true,
       composite_accuracy: 'MATRIX_SCREENING', fare_model_id: 'mumbai_taxi_standard', fare_model_version: '1.0.0', pulse_quantization_mode: 'CONTINUOUS' as const,
       excluded_charges: ['tolls', 'waiting time', 'parking'],
       disclaimer: "Estimated pre-trip fare; continuous estimate does not reproduce the physical taxi meter's pulse behavior. Final charge is determined by the taxi meter.",
@@ -256,10 +261,23 @@ describe('Ride Request UI Components', () => {
       fireEvent.click(screen.getByRole('button', { name: /Find compatible rides/i }));
       expect(await screen.findByText(/85% match/i)).toBeInTheDocument();
       expect(screen.getByText(/Approximate geographic fallback/i)).toBeInTheDocument();
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
       expect(screen.getByText(/Total shared taxi trip estimate:/i)).toBeInTheDocument();
       expect(screen.getByText(/Your separate solo trip estimate:/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Not a money-saving option/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Taking two separate rides is estimated to cost less overall/i)).toBeInTheDocument();
+<<<<<<< Updated upstream
+=======
+=======
+      expect(screen.getByText(/Shared journey:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your solo baseline:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your allocated share:/i)).toBeInTheDocument();
+      expect(screen.getByText(/DEC-013 privacy notice/i)).toBeInTheDocument();
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
       expect(screen.getByText(/Shared fare range for day\/night tariff/i)).toBeInTheDocument();
       expect(screen.getByText(/Your solo baseline day\/night range/i)).toBeInTheDocument();
       expect(screen.getByText(/does not reproduce the physical taxi meter/i)).toBeInTheDocument();

@@ -7,6 +7,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
+from app.fares.allocation import calculate_fare_allocation
 from app.fares.models import (
     FareAccuracy,
     FareComponentEstimate,
@@ -115,8 +116,17 @@ def estimate_match_fare(
     *,
     mode: PulseQuantizationMode | None = None,
     config: FareModelConfig | None = None,
+    bilateral_consent: bool = False,
 ) -> MatchFareEstimate:
+<<<<<<< Updated upstream
     """Estimate shared and both solo fares; the candidate baseline stays internal."""
+=======
+<<<<<<< HEAD
+    """Estimate shared and both solo fares; the candidate baseline stays internal."""
+=======
+    """Estimate shared fare, the request owner's solo baseline, and fair cost allocation."""
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
     if proposal.shared_departure_end < proposal.shared_departure_start:
         raise ValueError("Shared departure window end precedes start")
     mode = mode or PulseQuantizationMode(get_settings().FARE_PULSE_QUANTIZATION_MODE)
@@ -140,8 +150,8 @@ def estimate_match_fare(
         config,
         mode,
     )
-    # Candidate baseline is used only to avoid overstating composite accuracy. Its fare is
-    # neither serialized nor exposed to this viewer.
+    # Candidate baseline is evaluated for composite accuracy determination and proportional
+    # cost allocation. Under DEC-013, it is never exposed directly to this viewer without bilateral consent.
     other = _component(
         _distance(proposal.direct_b_dist_m),
         direct_source,
@@ -154,6 +164,12 @@ def estimate_match_fare(
         (shared.accuracy, own.accuracy, other.accuracy),
         key=_ACCURACY_ORDER.index,
     )
+    allocation = calculate_fare_allocation(
+        shared_fare=shared.amount,
+        solo_fare_a=own.amount,
+        solo_fare_b=other.amount,
+        bilateral_consent=bilateral_consent,
+    )
     return MatchFareEstimate(
         shared_journey=shared,
         your_solo_baseline=own,
@@ -162,7 +178,17 @@ def estimate_match_fare(
         model_id=config.model_id,
         model_version=config.version,
         pulse_quantization_mode=mode,
+<<<<<<< Updated upstream
         minimum_fare_paise=int(config.base_fare * 100),
         viewer_is_canonical_passenger_a=str(proposal.target_request_id)
         < str(proposal.candidate_request_id),
+=======
+<<<<<<< HEAD
+        minimum_fare_paise=int(config.base_fare * 100),
+        viewer_is_canonical_passenger_a=str(proposal.target_request_id)
+        < str(proposal.candidate_request_id),
+=======
+        allocation=allocation,
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
     )

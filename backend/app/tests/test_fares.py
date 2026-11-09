@@ -120,9 +120,16 @@ def test_matching_proposal_fare_is_viewer_scoped_and_accuracy_uses_weakest_input
     assert fare["shared_journey"]["accuracy_tier"] == "CALIBRATED_FALLBACK"
     assert fare["composite_accuracy"] == "CALIBRATED_FALLBACK"
     assert fare["your_solo_baseline"]["estimate_paise"] > 0
+    # Phase 5C: Authenticated viewer receives their own allocation & savings
+    assert fare["your_allocated_fare"]["estimate_paise"] > 0
+    assert fare["your_savings"]["estimate_paise"] > 0
+    assert fare["your_allocation"]["is_saving"] is True
+    assert fare["is_economically_beneficial"] is True
+    # DEC-013 Privacy: Co-passenger private baseline, contribution and savings remain strictly redacted
+    assert fare["co_passenger_contribution"] is None
     serialized = str(fare).lower()
-    assert "contribution" not in serialized and "savings" not in serialized
-    assert "co_passenger" not in serialized and "candidate_solo" not in serialized
+    assert "candidate_solo" not in serialized
+    assert "co_passenger_solo" not in serialized
     assert "does not claim to reproduce" in fare["disclaimer"]
 
 
@@ -181,6 +188,10 @@ def test_unavailable_fare_source_does_not_invalidate_match_proposal():
     assert schema.fare_estimate is None
 
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
 def test_dec008_allocation_conserves_paise_and_screens_the_reported_negative_case():
     from app.fares.allocation import EconomicClassification, allocate_pairwise_fares
     from app.fares.models import FareAmount
@@ -528,12 +539,198 @@ def test_exact_disclosure_is_absent_until_both_participants_consent():
     from app.api.v1.endpoints.matching import _proposal_to_schema
     from app.fares.consent import ProposalConsentState
     from app.fares.disclosure import CONSENT_NOTICE
+<<<<<<< Updated upstream
+=======
+=======
+def test_allocation_invariants_and_proportional_weighting():
+    from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
+    from app.fares.models import EconomicStatus
+
+    shared = paise_to_fare_amount(18000)  # ₹180.00
+    solo_a = paise_to_fare_amount(12000)  # ₹120.00
+    solo_b = paise_to_fare_amount(10000)  # ₹100.00
+
+    alloc = calculate_fare_allocation(shared, solo_a, solo_b)
+
+    # Invariant 1: Non-negative contributions
+    assert alloc.passenger_a.allocated_fare.estimate_paise >= 0
+    assert alloc.passenger_b.allocated_fare.estimate_paise >= 0
+
+    # Invariant 2: Sum conservation in paise and rupees
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        + alloc.passenger_b.allocated_fare.estimate_paise
+        == shared.estimate_paise
+    )
+    assert (
+        alloc.passenger_a.allocated_fare.estimate
+        + alloc.passenger_b.allocated_fare.estimate
+        == shared.estimate
+    )
+
+    # Invariant 3: Solo fares as weights: higher solo fare pays larger share
+    assert solo_a.estimate_paise > solo_b.estimate_paise
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        > alloc.passenger_b.allocated_fare.estimate_paise
+    )
+
+    # Invariant 4: Both passengers save when shared fare < combined solo fare
+    assert shared.estimate_paise < (solo_a.estimate_paise + solo_b.estimate_paise)
+    assert alloc.economic_status == EconomicStatus.SAVINGS
+    assert alloc.is_economically_beneficial is True
+    assert alloc.passenger_a.is_saving is True
+    assert alloc.passenger_b.is_saving is True
+    assert alloc.passenger_a.savings.estimate_paise > 0
+    assert alloc.passenger_b.savings.estimate_paise > 0
+    assert alloc.passenger_a.savings_percent > 0
+    assert alloc.passenger_b.savings_percent > 0
+
+    # Invariant 9: Original solo fares remain unchanged
+    assert alloc.passenger_a.solo_fare == solo_a
+    assert alloc.passenger_b.solo_fare == solo_b
+
+    # Invariant 10: Original shared fare remains unchanged
+    assert alloc.total_shared_fare == shared
+
+    # Invariant 11: Driver receives full agreed gross fare
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        + alloc.passenger_b.allocated_fare.estimate_paise
+        == shared.estimate_paise
+    )
+
+
+def test_allocation_break_even_outcome():
+    from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
+    from app.fares.models import EconomicStatus
+
+    solo_a = paise_to_fare_amount(6000)
+    solo_b = paise_to_fare_amount(4000)
+    shared = paise_to_fare_amount(10000)  # Exactly equal to 6000 + 4000
+
+    alloc = calculate_fare_allocation(shared, solo_a, solo_b)
+
+    # Invariant 5: Break-even reports no savings
+    assert alloc.economic_status == EconomicStatus.BREAK_EVEN
+    assert alloc.is_economically_beneficial is False
+    assert alloc.combined_savings.estimate_paise == 0
+    assert alloc.passenger_a.savings.estimate_paise == 0
+    assert alloc.passenger_b.savings.estimate_paise == 0
+    assert alloc.passenger_a.is_saving is False
+    assert alloc.passenger_b.is_saving is False
+    assert alloc.passenger_a.savings_percent == 0.0
+    assert alloc.passenger_b.savings_percent == 0.0
+    # Invariant 2: Still strictly conserved
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        + alloc.passenger_b.allocated_fare.estimate_paise
+        == shared.estimate_paise
+    )
+
+
+def test_allocation_dissavings_outcome():
+    from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
+    from app.fares.models import EconomicStatus
+
+    solo_a = paise_to_fare_amount(5000)
+    solo_b = paise_to_fare_amount(5000)
+    shared = paise_to_fare_amount(12000)  # Greater than combined 10000
+
+    alloc = calculate_fare_allocation(shared, solo_a, solo_b)
+
+    # Invariant 6: Dissavings reports negative combined savings and UNATTRACTIVE
+    assert alloc.economic_status == EconomicStatus.UNATTRACTIVE
+    assert alloc.is_economically_beneficial is False
+    assert alloc.combined_savings.estimate_paise == -2000
+    assert alloc.passenger_a.savings.estimate_paise == -1000
+    assert alloc.passenger_b.savings.estimate_paise == -1000
+
+    # Invariant 7: No fabricated savings
+    assert alloc.passenger_a.is_saving is False
+    assert alloc.passenger_b.is_saving is False
+    assert alloc.passenger_a.savings_percent == 0.0
+    assert alloc.passenger_b.savings_percent == 0.0
+
+    # Invariant 11: Driver's gross fare is preserved, not artificially discounted
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        + alloc.passenger_b.allocated_fare.estimate_paise
+        == 12000
+    )
+
+
+def test_allocation_rounding_cannot_create_false_savings():
+    from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
+
+    # Invariant 8: Micro-fare edge case where rounding could round share up to solo fare
+    solo_a = paise_to_fare_amount(1)
+    solo_b = paise_to_fare_amount(10000)
+    shared = paise_to_fare_amount(10000)  # combined is 10001, shared is 10000
+
+    alloc = calculate_fare_allocation(shared, solo_a, solo_b)
+
+    # 10000 * 1 / 10001 rounds to 1 paisa for A -> savings = 0
+    assert alloc.passenger_a.allocated_fare.estimate_paise == 1
+    assert alloc.passenger_a.savings.estimate_paise == 0
+    assert alloc.passenger_a.is_saving is False  # False savings claim prevented!
+    assert alloc.passenger_b.allocated_fare.estimate_paise == 9999
+    assert alloc.passenger_b.savings.estimate_paise == 1
+    assert alloc.passenger_b.is_saving is True
+    assert (
+        alloc.passenger_a.allocated_fare.estimate_paise
+        + alloc.passenger_b.allocated_fare.estimate_paise
+        == shared.estimate_paise
+    )
+
+
+def test_allocation_zero_and_invalid_inputs():
+    from app.fares.allocation import calculate_fare_allocation, paise_to_fare_amount
+    from app.fares.models import EconomicStatus
+
+    # Invariant 12: Negative fares are rejected
+    with pytest.raises(ValueError, match="non-negative"):
+        calculate_fare_allocation(
+            paise_to_fare_amount(-100),
+            paise_to_fare_amount(100),
+            paise_to_fare_amount(100),
+        )
+
+    # Zero shared fare
+    zero_shared = calculate_fare_allocation(
+        paise_to_fare_amount(0), paise_to_fare_amount(1000), paise_to_fare_amount(2000)
+    )
+    assert zero_shared.passenger_a.allocated_fare.estimate_paise == 0
+    assert zero_shared.passenger_b.allocated_fare.estimate_paise == 0
+    assert zero_shared.economic_status == EconomicStatus.SAVINGS
+
+    # Both solo fares zero
+    zero_solos = calculate_fare_allocation(
+        paise_to_fare_amount(1000), paise_to_fare_amount(0), paise_to_fare_amount(0)
+    )
+    assert zero_solos.economic_status == EconomicStatus.UNATTRACTIVE
+    assert zero_solos.is_economically_beneficial is False
+    assert (
+        zero_solos.passenger_a.allocated_fare.estimate_paise
+        + zero_solos.passenger_b.allocated_fare.estimate_paise
+        == 1000
+    )
+
+
+def test_dec013_bilateral_consent_toggling():
+    from app.api.v1.endpoints.matching import _proposal_to_schema
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
     from app.fares.service import estimate_match_fare
 
     proposal = _proposal(
         datetime.fromisoformat("2026-11-08T10:00:00+05:30"),
         datetime.fromisoformat("2026-11-08T10:30:00+05:30"),
     )
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
     fares = estimate_match_fare(proposal)
     no_consent = ProposalConsentState(
         {proposal.target_request_id: False, proposal.candidate_request_id: False}
@@ -557,3 +754,36 @@ def test_exact_disclosure_is_absent_until_both_participants_consent():
     assert "co_passenger_solo_baseline" not in str(wire)
     assert "candidate_solo" not in str(wire)
     assert "co_passenger_savings" not in str(wire)
+<<<<<<< Updated upstream
+=======
+=======
+
+    # Without bilateral consent (default)
+    est_unconsented = estimate_match_fare(proposal, bilateral_consent=False)
+    assert est_unconsented.allocation is not None
+    assert est_unconsented.allocation.bilateral_consent is False
+
+    schema_unconsented = _proposal_to_schema(proposal)
+    assert schema_unconsented.fare_estimate is not None
+    assert schema_unconsented.fare_estimate.co_passenger_contribution is None
+
+    # With bilateral consent
+    est_consented = estimate_match_fare(proposal, bilateral_consent=True)
+    assert est_consented.allocation is not None
+    assert est_consented.allocation.bilateral_consent is True
+
+    from app.api.v1.endpoints.matching import _fare_to_schema
+
+    schema_consented = _fare_to_schema(est_consented)
+    assert schema_consented.co_passenger_contribution is not None
+    # Solo baseline and private savings of co-passenger remain redacted under DEC-013
+    serialized_consented = str(schema_consented.model_dump(mode="json")).lower()
+    assert "co_passenger_solo" not in serialized_consented
+    assert "candidate_solo" not in serialized_consented
+    assert (
+        schema_consented.your_allocated_fare.estimate_paise
+        + schema_consented.co_passenger_contribution.estimate_paise
+        == schema_consented.shared_journey.estimate_paise
+    )
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes

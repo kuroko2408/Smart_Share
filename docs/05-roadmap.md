@@ -487,8 +487,18 @@ Suggested tracking table:
 | Ride request API & Management | Both | COMPLETED | End-to-end ride request lifecycle, REST endpoints, PostGIS 4326 persistence, React UI |
 | Matching engine | Backend | Not started | Matching test report |
 | Phase 5B Fare Estimation | Backend | Implemented; hosted E2E acceptance pending | Tariff, provenance, estimate disclaimer and regression evidence; hosted authenticated workflow remains unverified |
+<<<<<<< Updated upstream
 | Phase 5C Fare Allocation | Backend | Implemented; hosted acceptance pending | DEC-008 allocation/conservation, economic warning, DEC-013 consent enforcement and privacy tests; hosted migration/E2E remain outstanding |
 | Phase 6A Fare and Consent UX | Frontend | Not started | Broader authenticated fare presentation after Phase 5C API acceptance; no duplicate allocation logic |
+=======
+<<<<<<< HEAD
+| Phase 5C Fare Allocation | Backend | Implemented; hosted acceptance pending | DEC-008 allocation/conservation, economic warning, DEC-013 consent enforcement and privacy tests; hosted migration/E2E remain outstanding |
+| Phase 6A Fare and Consent UX | Frontend | Not started | Broader authenticated fare presentation after Phase 5C API acceptance; no duplicate allocation logic |
+=======
+| Phase 5C Fare Allocation | Backend | Implemented (Local Verified) | DEC-008 proportional allocation, DEC-013 privacy, 12 invariants tested, reports complete |
+| Phase 6A Fare and Consent UX | Frontend | Not started | Authenticated API-backed fare display, bilateral consent flow and UI verification |
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
 | Frontend MVP | Frontend | In progress | Core screens (Auth, Profile, Ride Requests complete; Matching next) |
 | Integration | Both | In progress | Supabase Auth, Profile, and Ride Requests integrated live |
 | Deployment | Both | Not started | Live demo |

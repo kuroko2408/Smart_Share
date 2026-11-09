@@ -1,11 +1,30 @@
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
 """Pairwise proportional fare allocation and economic benefit assessment.
 
 This module consumes Phase 5B estimates. Exact allocation disclosures are
 serialized only after both participants affirmatively consent under DEC-013.
+<<<<<<< Updated upstream
+=======
+=======
+"""Fair solo-fare proportional fare allocation service (Phase 5C / DEC-008).
+
+Calculates deterministic passenger contributions and savings using each passenger's
+own solo fare as their allocation weight. Uses Decimal arithmetic and integer paise
+throughout, with deterministic residual rounding preserving the agreed shared fare
+down to 0.0000 paise.
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
 """
 
 from __future__ import annotations
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
@@ -246,3 +265,150 @@ def assess_match_economics(
             scenarios=scenarios,
         )
     return allocation, assessment
+<<<<<<< Updated upstream
+=======
+=======
+from decimal import ROUND_HALF_UP, Decimal
+
+from app.fares.models import (
+    EconomicStatus,
+    FareAllocationResult,
+    FareAmount,
+    PassengerAllocation,
+)
+
+
+def paise_to_fare_amount(paise: int) -> FareAmount:
+    """Convert integer paise to a FareAmount domain object without float math."""
+    rupees_dec = (Decimal(paise) / Decimal(100)).quantize(Decimal("0.01"))
+    rounded_rupees = int(
+        (Decimal(paise) / Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+    return FareAmount(
+        estimate=rupees_dec,
+        estimate_paise=paise,
+        rounded_estimate_rupees=rounded_rupees,
+    )
+
+
+def _savings_percent(savings_paise: int, solo_paise: int) -> float:
+    """Compute percentage savings rounded to 2 decimal places."""
+    if solo_paise <= 0 or savings_paise <= 0:
+        return 0.0
+    pct = (Decimal(savings_paise) / Decimal(solo_paise) * Decimal(100)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    return float(pct)
+
+
+def calculate_fare_allocation(
+    shared_fare: FareAmount,
+    solo_fare_a: FareAmount,
+    solo_fare_b: FareAmount,
+    *,
+    bilateral_consent: bool = False,
+) -> FareAllocationResult:
+    """
+    Allocate the agreed shared trip fare between two passengers proportionally to solo fares.
+
+    Invariants:
+    1. contribution_a + contribution_b == shared_fare (exact down to 0 paise).
+    2. Driver receives 100% of the agreed shared fare (no gross fare reduction).
+    3. Both contributions are non-negative.
+    4. Economic outcomes:
+       - SAVINGS: shared_fare < combined_solo_fare (both save, subject to paise rounding).
+       - BREAK_EVEN: shared_fare == combined_solo_fare (neither told they save).
+       - UNATTRACTIVE: shared_fare > combined_solo_fare (negative savings reported; no fabricated savings).
+    """
+    shared_paise = shared_fare.estimate_paise
+    solo_a_paise = solo_fare_a.estimate_paise
+    solo_b_paise = solo_fare_b.estimate_paise
+
+    if shared_paise < 0 or solo_a_paise < 0 or solo_b_paise < 0:
+        raise ValueError("Fare amounts must be non-negative integers in paise")
+
+    combined_solo_paise = solo_a_paise + solo_b_paise
+    combined_savings_paise = combined_solo_paise - shared_paise
+
+    if combined_solo_paise == 0:
+        if shared_paise == 0:
+            contrib_a_paise = 0
+            contrib_b_paise = 0
+            status = EconomicStatus.BREAK_EVEN
+            is_beneficial = False
+        else:
+            contrib_a_paise = shared_paise // 2
+            contrib_b_paise = shared_paise - contrib_a_paise
+            status = EconomicStatus.UNATTRACTIVE
+            is_beneficial = False
+    elif shared_paise == 0:
+        contrib_a_paise = 0
+        contrib_b_paise = 0
+        status = EconomicStatus.SAVINGS
+        is_beneficial = True
+    else:
+        # Proportional solo-fare allocation weights (DEC-008)
+        w_a = Decimal(solo_a_paise) / Decimal(combined_solo_paise)
+        contrib_a_paise = int(
+            (Decimal(shared_paise) * w_a).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        # Deterministic residual rounding: Passenger B receives exact remainder
+        contrib_b_paise = shared_paise - contrib_a_paise
+
+        # Enforce non-negative contribution bounds
+        if contrib_a_paise < 0:
+            contrib_a_paise = 0
+            contrib_b_paise = shared_paise
+        elif contrib_a_paise > shared_paise:
+            contrib_a_paise = shared_paise
+            contrib_b_paise = 0
+
+        if combined_savings_paise > 0:
+            status = EconomicStatus.SAVINGS
+            is_beneficial = True
+        elif combined_savings_paise == 0:
+            status = EconomicStatus.BREAK_EVEN
+            is_beneficial = False
+        else:
+            status = EconomicStatus.UNATTRACTIVE
+            is_beneficial = False
+
+    savings_a_paise = solo_a_paise - contrib_a_paise
+    savings_b_paise = solo_b_paise - contrib_b_paise
+
+    # Individual saving flag: True only if strictly saving paise and overall beneficial
+    is_saving_a = is_beneficial and (savings_a_paise > 0)
+    is_saving_b = is_beneficial and (savings_b_paise > 0)
+
+    pass_a = PassengerAllocation(
+        solo_fare=solo_fare_a,
+        allocated_fare=paise_to_fare_amount(contrib_a_paise),
+        savings=paise_to_fare_amount(savings_a_paise),
+        savings_percent=_savings_percent(savings_a_paise, solo_a_paise)
+        if is_saving_a
+        else 0.0,
+        is_saving=is_saving_a,
+    )
+
+    pass_b = PassengerAllocation(
+        solo_fare=solo_fare_b,
+        allocated_fare=paise_to_fare_amount(contrib_b_paise),
+        savings=paise_to_fare_amount(savings_b_paise),
+        savings_percent=_savings_percent(savings_b_paise, solo_b_paise)
+        if is_saving_b
+        else 0.0,
+        is_saving=is_saving_b,
+    )
+
+    return FareAllocationResult(
+        total_shared_fare=shared_fare,
+        combined_solo_fare=paise_to_fare_amount(combined_solo_paise),
+        combined_savings=paise_to_fare_amount(combined_savings_paise),
+        economic_status=status,
+        is_economically_beneficial=is_beneficial,
+        passenger_a=pass_a,
+        passenger_b=pass_b,
+        bilateral_consent=bilateral_consent,
+    )
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes

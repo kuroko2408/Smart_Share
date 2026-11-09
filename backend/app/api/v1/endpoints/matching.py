@@ -20,6 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db as get_db_session
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
 from app.fares.allocation import assess_match_economics
 from app.fares.consent import (
     ProposalConsentState,
@@ -32,6 +36,9 @@ from app.fares.disclosure import (
     disclosure_subject_fingerprint,
 )
 from app.fares.models import FareComponentEstimate, MatchFareEstimate
+=======
+from app.fares.models import FareAmount, FareComponentEstimate, MatchFareEstimate
+>>>>>>> 3dfc1f3 (5C)
 from app.fares.service import estimate_match_fare
 from app.matching.service import (
     MatchProposal,
@@ -57,6 +64,7 @@ from app.schemas.matching import (
     MatchFareEstimateSchema,
     MatchListResponseSchema,
     MatchProposalSchema,
+    PassengerFareAllocationSchema,
     PassengerJourneyDetailSchema,
     RouteLegSchema,
     ScoreBreakdownSchema,
@@ -108,10 +116,56 @@ def _fare_component_to_schema(value: FareComponentEstimate) -> FareComponentSche
     )
 
 
+def _fare_amount_to_schema(amount: FareAmount) -> FareAmountSchema:
+    return FareAmountSchema(
+        estimate=float(amount.estimate),
+        estimate_paise=amount.estimate_paise,
+        rounded_estimate_rupees=amount.rounded_estimate_rupees,
+    )
+
+
 def _fare_to_schema(value: MatchFareEstimate) -> MatchFareEstimateSchema:
+    your_allocation_schema = None
+    your_allocated_fare = None
+    your_savings = None
+    your_savings_percent = 0.0
+    economic_status = "SAVINGS"
+    is_beneficial = True
+    co_contrib = None
+
+    if value.allocation is not None:
+        alloc = value.allocation
+        economic_status = alloc.economic_status.value
+        is_beneficial = alloc.is_economically_beneficial
+        pass_a = alloc.passenger_a
+        your_allocated_fare = _fare_amount_to_schema(pass_a.allocated_fare)
+        your_savings = _fare_amount_to_schema(pass_a.savings)
+        your_savings_percent = pass_a.savings_percent
+        your_allocation_schema = PassengerFareAllocationSchema(
+            allocated_fare=your_allocated_fare,
+            savings=your_savings,
+            savings_percent=your_savings_percent,
+            is_saving=pass_a.is_saving,
+            economic_status=economic_status,
+            is_economically_beneficial=is_beneficial,
+        )
+
+        # Under DEC-013, co-passenger exact contribution disclosure is strictly gated by bilateral consent.
+        # Direct solo baselines and private savings remain strictly redacted from the other passenger.
+        if alloc.bilateral_consent:
+            pass_b = alloc.passenger_b
+            co_contrib = _fare_amount_to_schema(pass_b.allocated_fare)
+
     return MatchFareEstimateSchema(
         shared_journey=_fare_component_to_schema(value.shared_journey),
         your_solo_baseline=_fare_component_to_schema(value.your_solo_baseline),
+        your_allocation=your_allocation_schema,
+        your_allocated_fare=your_allocated_fare,
+        your_savings=your_savings,
+        your_savings_percent=your_savings_percent,
+        economic_status=economic_status,
+        is_economically_beneficial=is_beneficial,
+        co_passenger_contribution=co_contrib,
         composite_accuracy=value.composite_accuracy.value,
         fare_model_id=value.model_id,
         fare_model_version=value.model_version,

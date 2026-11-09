@@ -2037,15 +2037,28 @@ async def test_match_discovery_api_includes_viewer_scoped_fare_estimate() -> Non
     assert fare["your_solo_baseline"]["estimate_paise"] > 0
     assert fare["composite_accuracy"] == "MATRIX_SCREENING"
     assert "does not claim to reproduce" in fare["disclaimer"]
+    assert fare["your_allocated_fare"]["estimate_paise"] > 0
+    assert fare["your_savings"]["estimate_paise"] > 0
+    assert fare["co_passenger_contribution"] is None
     serialized_proposal = str(payload).lower()
     assert not any(
         forbidden in serialized_proposal
         for forbidden in (
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
             "your_contribution_paise",
             "co_passenger_contribution_paise",
             "your_savings_paise",
             "co_passenger_savings",
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> 3dfc1f3 (5C)
+>>>>>>> Stashed changes
             "co_passenger_solo",
+            "candidate_solo",
         )
     )
     assert payload["fare_allocation_disclosure"]["allocation"] is None
