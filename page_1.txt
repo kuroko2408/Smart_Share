@@ -1,0 +1,10 @@
+NOVEX 2026  |  FINAL PROJECT REPORT
+SMART SHARE
+Intelligent, location-based cab pooling for Mumbai
+Same Direction. Similar Timing. One Shared Ride.
+Team name: [ENTER TEAM NAME]
+Team members: [ENTER NAMES AND ROLES]
+College / institution: [ENTER COLLEGE]
+Mentor: [ENTER MENTOR, IF ANY]
+Submission date: [ENTER DATE]
+Status statement: matching suggestions are implemented; ride acceptance, booking and payments are not.

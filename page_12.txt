@@ -1,0 +1,49 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 12
+Documented testing results
+ Evidence
+Result
+Source
+Backend test suite
+100 tests: 99 passed and 1 skipped offline; 100 passed with live
+database
+Post-merge verification (Nov
+7, 2026)
+Backend, earlier run
+90 passed, 0 failed, 0 skipped
+Phase 4B remediation report
+Frontend tests
+28 passed (earlier run: 26)
+Post-merge verification;
+remediation report
+Static checks and build
+Ruff, Oxlint, TypeScript and Vite production build all passed
+Both reports
+Real OSRM call, BKC to Powai
+645.1 s and 8,803.9 m, road-network based, not live traffic
+Remediation report
+PostGIS GiST index
+idx_ride_requests_pickup_gist exists; spatial predicate is
+index-compatible
+Remediation and post-merge
+reports
+Live pipeline run on hosted
+PostGIS
+1 candidate found, pickup 45.82 m, score 0.986, all inside a
+rolled-back transaction
+Post-merge verification
+Table 4. Test evidence. The figures differ between reports because the later post-merge audit added tests; the later numbers are the
+current ones.
+Verification status, stated transparently
+ Phase 4B verdict: CONDITIONAL PASS. The Phase 4B remediation report could not complete the
+authenticated hosted end-to-end workflow (real sign-in, frontend-triggered matching request, hosted PostGIS
+discovery and rendered proposal). The hosted development database had zero active ride requests and no
+two development users were available for the test.
+A later post-merge audit found and fixed a spatial-parsing defect and verified the backend matching pipeline
+against the live hosted PostGIS inside a rolled-back transaction, and it rated the build ready for Phase 5. The
+reviewed documents still do not record the full authenticated browser-driven flow with two users. This report
+therefore does not claim complete hosted end-to-end verification.
+Also unmeasured: performance at realistic data volumes (the hosted tables held only a handful of rows), and any
+fare, savings or emissions outcome.

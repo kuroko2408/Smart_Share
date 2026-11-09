@@ -1,0 +1,71 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 9
+Section 7  |  System Architecture
+User
+(mobile browser)
+React frontend
+Vite + TypeScript
+ mobile-first UI
+Supabase Auth
+sign-in, issues JWT
+FastAPI backend  (/api/v1)
+JWT verification
+ (JWKS, ES256)
+Profiles API
+ (/users/me)
+Ride request API
+CRUD + ownership
+Matching engine
+(on demand, pairwise)
+Routing adapter: OSRM table API (default) / OpenRouteService (if key set)
+On error, timeout or rate limit: approximate fallback (geodesic x 1.40, 22 km/h)
+PostgreSQL + PostGIS
+ profiles, ride_requests
+geography(Point,4326), GiST
+OSRM public service
+(road-network duration,
+ not live traffic)
+Bearer JWT
+sign-in / token
+JWKS keys
+Primary data flow
+User > React frontend > Supabase Auth > authenticated API request > FastAPI > matching engine > PostGIS/PostgreSQL
+ > OSRM routing (or approximate fallback) > ranked proposals with explanations > JSON response > frontend
+Candidate details exposed to the client omit contact and auth data. Proposals are computed on demand and are not persisted.
+Figure 3. System architecture and primary data flow.
+The frontend never decides feasibility: the backend is authoritative. The routing module sits behind a provider
+interface, so OSRM, OpenRouteService or the fallback can be swapped without changing the matching logic.
+Proposals are recomputed on each request, so cancelling or expiring a request removes it from later results
+without extra bookkeeping.
+1  Geographic discovery
+ + pickup proximity
+PostGIS, <=2,000 m,
+ACTIVE, unexpired, LIMIT 20
+2  Departure-time
+ compatibility
+closed-interval window
+ overlap
+3  Direction
+compatibility
+bearing diff <=45 deg; <=90 deg
+ only if dests within 3 km
+4  Seat capacity
+combined seats <=4
+ (hard gate)
+5  Pairwise route order
+ 4 pooled stop orders
+(routing duration matrix)
+6  Detour calculation
+per-passenger vs own
+ max_extra_minutes
+7  Candidate ranking
+ score, detour, pickup
+ distance; top 5
+8  Match explanations
+ score factors, stops,
+ accuracy notice
+Steps 1, 2 and 4 run inside one parameterised SQL query; steps 3 and 5-8 run in Python.
+Hard filters run before ranking: a high score can never make an infeasible pairing eligible.
+Figure 4. Matching workflow.

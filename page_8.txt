@@ -1,0 +1,90 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 8
+Section 6  |  Technology / Tech Stack
+Frontend
+React
+TypeScript
+Vite
+Vitest
+UI, forms, match results screen
+Backend
+Python
+FastAPI
+SQLAlchemy 2
+Pydantic
+REST API, validation, matching engine
+Data
+PostgreSQL 17
+PostGIS 3.3
+Supabase (hosted)
+Alembic
+Geography storage, spatial index, migrations
+Identity
+Supabase Auth
+JWT / JWKS (ES256)
+Sign-in; backend verifies bearer tokens
+Routing
+OSRM (public table API)
+OpenRouteService (optional)
+Approx. fallback
+Road-network durations, graceful degradation
+Quality
+Pytest
+Ruff
+Oxlint
+tsc
+Vite build
+Tests, lint, type checks, production build
+Figure 2. Technology stack, limited to components documented as implemented.
+Technology
+Purpose in Smart Share
+Why it fits
+React, TypeScript, Vite
+Single-page, mobile-first UI and ride-request forms
+Typed components, fast builds and a rich
+ecosystem
+Python, FastAPI
+REST API under /api/v1 and the matching engine
+Async support, automatic OpenAPI docs,
+clean dependency injection
+Pydantic
+Request/response validation and schemas
+Rejects invalid coordinates, windows and
+seats early
+SQLAlchemy 2 (async)
+Database access and models
+Async queries and parameterised SQL
+PostgreSQL + PostGIS
+Stores requests as geography(Point, 4326); spatial
+radius search
+ST_DWithin with a GiST index narrows
+candidates quickly
+Supabase (hosted)
+Managed PostgreSQL and authentication
+No self-managed infrastructure for a
+hackathon team
+Alembic
+Versioned schema migrations (revision
+5b69062ab3ef)
+Reproducible, reviewable schema changes
+Supabase Auth, JWT/JWKS
+User sign-in; backend verifies bearer tokens
+Identity is derived from the token, never from
+client input
+OSRM (+ approximate
+fallback)
+Road-network travel durations for detour checks
+No credential needed; fallback keeps
+matching available
+Pytest, Ruff, Oxlint, tsc,
+Vitest
+Backend tests/lint; frontend lint, type check and
+tests
+Catch regressions and keep code quality
+consistent
+Table 2. Technologies and rationale.
+Not claimed as implemented: Tailwind CSS, shadcn/ui, Leaflet maps, TanStack Query, Playwright and
+Docker-based infrastructure appear in the original architecture proposal, but the verification reports reviewed
+here do not confirm them. Please confirm against the repository before listing them.

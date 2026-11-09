@@ -1,0 +1,21 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 4
+Section 2  |  Problem Statement
+In dense cities such as Mumbai, many people start journeys from the same place, at nearly the same time,
+towards the same or neighbouring destinations. Yet each person typically books a separate cab, because there is
+no easy way to find out who else is going their way.
+Typical situations:
+  Railway stations (for example Dadar or CSMT): many commuters leave the same exit within minutes of each
+other.
+ Airports (for example Mumbai T2): arriving passengers head to nearby suburbs in a similar direction.
+ Events and functions: a college festival or wedding ends, and hundreds of guests leave at once.
+ Busy commercial areas (for example BKC): office crowds travel to similar residential corridors in the evening.
+Informal coordination through messaging groups is manual and unreliable. Even when two travellers find each
+other, they cannot easily judge whether sharing is practical: how far apart the pickups are, whether their departure
+times line up, whether one rider would face a long backtracking detour. Straight-line closeness is misleading in
+Mumbai; the project design notes show that two pickups at the same station can head in opposite directions
+(Dadar to Colaba versus Dadar to Borivali), and that water bodies make nearby points far apart by road.
+The consequences are unnecessary separate journeys, higher individual costs, underused vehicle
+capacity and added congestion near crowded venues.

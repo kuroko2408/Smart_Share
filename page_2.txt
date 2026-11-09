@@ -1,0 +1,22 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 2
+Contents
+1.  Abstract
+2.  Problem Statement
+3.  Proposed Solution
+4.  Objectives
+5.  Key Features
+6.  Technology / Tech Stack
+7.  System Architecture
+8.  Implementation
+9.  Results / Screenshots
+10.  Innovation
+11.  Impact
+12.  Future Scope
+13.  References
+Reading guide. This report separates intended design from what has been built and verified. Every
+feature carries one of three labels: Implemented and tested, Implemented, awaiting complete end-to-end
+verification, or Planned. Test figures come from the project's own verification reports; nothing here is a
+measured user outcome.

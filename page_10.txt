@@ -1,0 +1,87 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 10
+Section 8  |  Implementation
+Phase 0
+Planning and
+documentation
+completed
+Phase 1
+Repository and
+dev foundation
+completed
+Phase 2
+Database + Supabase
+ Auth
+completed
+Phase 3
+Ride request
+management
+completed
+Phase 4
+Matching engine
+(4A design, 4B build)
+implemented; E2E pending
+Phase 5
+Road routing refinement
+ + fare estimation
+planned
+Phase 6
+Frontend product
+ + maps
+planned
+Phase 7
+Group lifecycle
+ + acceptance
+planned
+Phase 8
+Testing and
+stabilisation
+planned
+Phase 9
+Deployment
+ and demo
+planned
+Figure 5. Implementation timeline. Phases 5-9 are planned.
+Phase 0 - Planning and documentation
+Six foundation documents: project charter, SRS/PRD, architecture and technical design, database and API
+contracts, roadmap, and developer guide. Together they froze the MVP scope and set the matching approach as
+a rule-based, explainable heuristic.
+Phase 1 - Foundation
+Repository, React/Vite/TypeScript frontend skeleton, FastAPI backend skeleton, environment configuration and a
+health endpoint. The roadmap records a running local environment and CI configuration. The detailed Phase 1
+audit was not among the documents reviewed, so details such as the Docker/PostGIS setup should be added by
+the team.
+Phase 2 - Database and Supabase integration
+SQLAlchemy models and the first Alembic migration (5b69062ab3ef) create profiles and ride requests on
+hosted PostgreSQL 17.11 with PostGIS 3.3.7. Locations are stored as geography(Point, 4326) with GiST indexes,
+and database constraints enforce valid windows, 1-6 seats, detour limits and valid status values. Supabase Auth
+is integrated, and the backend verifies ES256 tokens through JWKS.
+Phase 3 - Ride request management
+Authenticated create, list, view, update and cancel endpoints with ownership checks, coordinate and window
+validation, and matching React forms and listings. Requests move through ACTIVE, MATCHED, CANCELLED,
+EXPIRED and COMPLETED states.
+Phase 4 - Matching engine (4A design, 4B build)
+Phase 4A specified the algorithm and its worked Mumbai examples. Phase 4B implemented candidate discovery,
+direction and capacity gating, enumeration of pairwise stop orders, per-rider detour checks, scoring, ranking,
+three matching endpoints, the routing adapters and the 'Find matches' UI.
+Technical challenges and how they were addressed
+ Challenge
+Resolution
+Straight-line distance misleads in Mumbai (water barriers,
+opposite headings from one station)
+Direction gate (hard reject above 90 degrees) and road-network
+durations for detours
+Two precedence-valid stop orders in which riders never share
+the cab
+Engine enumerates six orders and rejects the two non-sharing
+ones
+Public routing service is rate-limited and has no uptime
+guarantee
+Bounded requests (4 points), 1.05 s spacing, timeout, labelled
+approximate fallback
+Backend test suite stalled on an existing test (event-loop
+incompatibility on Python 3.14)
+Tests switched to a uvloop loop factory; no test skipped or
+timeout raised

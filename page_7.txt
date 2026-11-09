@@ -1,0 +1,116 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 7
+Section 5  |  Key Features
+Status is taken from the latest implementation and verification reports. 'Tested' means automated tests, plus live
+checks where noted.
+ Feature
+Planned
+Implemented
+Tested
+Status
+Supabase Auth with backend JWT
+verification (ES256/JWKS)
+Yes
+Yes
+Auth test suite (18 tests)
+Implemented and
+tested
+User profiles (retrieve/update)
+Yes
+Yes
+API tests
+Implemented and
+tested
+Ride request create, list, view, edit,
+cancel; ownership checks
+Yes
+Yes
+API + model tests; UI tests
+Implemented and
+tested
+Pickup/destination (landmark
+presets), departure window, seats,
+detour preference
+Yes
+Yes (presets; free
+map picker not
+documented)
+UI tests
+Implemented and
+tested
+PostGIS candidate filtering (2 km
+radius, window overlap,
+active/unexpired, LIMIT 20)
+Yes
+Yes
+Unit tests; GiST usability
+and live PostGIS run
+(rolled-back transaction)
+Implemented and
+tested; browser E2E
+pending
+Direction and seat-capacity checks
+Yes
+Yes
+Unit tests
+Implemented and
+tested
+Pairwise stop-order evaluation and
+per-rider detour limits
+Yes
+Yes
+Unit tests
+Implemented and
+tested
+Weighted scoring, ranking (top 5)
+and match explanations
+Yes
+Yes
+Unit, API and UI tests
+Implemented;
+authenticated hosted
+E2E pending
+OSRM road-network durations and
+approximate fallback
+Yes
+Yes
+Adapter and fallback tests;
+one real BKC to Powai call
+Implemented and
+tested; public OSRM
+demo is best-effort
+'Find matches' UI with loading,
+error, empty and ranked states
+Yes
+Yes
+Frontend tests
+Implemented;
+authenticated hosted
+E2E pending
+Match acceptance / decline, ride
+groups, proposal expiry
+Yes
+No
+-
+Planned (Phase 7)
+Fare estimation and allocation
+Yes
+No
+-
+Planned (Phase 5)
+Map visualisation, notifications,
+events, payments, live tracking, cab
+booking
+Yes /
+Future
+No
+-
+Planned or future
+Table 1. Feature-status matrix.
+Scoring model (as implemented)
+Composite score = 30% pickup proximity + 30% destination similarity and direction + 20% departure-time
+compatibility + 20% individual detour headroom. Seat capacity is a hard eligibility gate, not a scoring factor. Ties
+are broken by lower total detour, then smaller pickup distance. Early design drafts used five factors; the weights
+above are the implemented ones.

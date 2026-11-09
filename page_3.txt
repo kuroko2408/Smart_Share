@@ -1,0 +1,20 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 3
+Section 1  |  Abstract
+Smart Share is a mobile-first platform that helps people discover others whose journeys are compatible with
+theirs, so that they can share a cab instead of booking separate ones. People leaving the same station, airport,
+event or business district at about the same time, heading in a similar direction, rarely know about each other.
+Smart Share lets a user post a ride request (pickup, destination, departure window, seats, and the maximum extra
+minutes they accept) and returns a ranked list of compatible requests with an explanation of why each was
+suggested.
+The matching engine is location-aware and time-aware. It uses PostGIS to shortlist nearby pickups, then checks
+departure-window overlap, travel direction and seat capacity. It evaluates the valid pickup and drop-off orders for
+a pair, using OSRM road-network durations (with a clearly labelled approximate fallback), and keeps only pairings
+that stay inside each rider's detour limit. The stack is React, TypeScript and Vite on the front end; Python, FastAPI
+and SQLAlchemy on the back end; PostgreSQL with PostGIS hosted on Supabase; and Supabase Auth with
+backend JWT verification.
+Expected benefits are lower individual fares, better seat utilisation and fewer separate trips. These are expected
+benefits and have not been measured. Smart Share currently produces ranked suggestions; it does not book
+cabs, assign drivers or process payments.

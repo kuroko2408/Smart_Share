@@ -1,0 +1,57 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 14
+Section 12  |  Future Scope
+All items below are proposed and are not implemented.
+ Priority
+Item
+Roadmap link
+Near term
+Complete the authenticated hosted end-to-end verification with two development
+users
+Phase 4B acceptance
+Near term
+Road-distance normalisation, fare estimation and fare splitting
+Phase 5
+Next
+Match acceptance and decline, passenger coordination, proposal expiry, shared ride
+group formation with transaction-safe seat allocation
+Phase 7
+Next
+Notifications and map visualisation of routes
+Phases 6-7
+Later
+Traffic-aware routing and a managed or self-hosted routing service
+Production readiness
+Later
+Advanced matching optimisation (groups of three or four riders)
+Matching extension
+Later
+Event-based pooling; railway and airport integrations
+Roadmap 'should have'
+Later
+Cab-provider or booking integration, payments, real-time tracking
+Out of MVP scope
+Later
+Production deployment and scaling, load testing at realistic data volumes
+Phases 8-9
+Section 13  |  References
+ React documentation: https://react.dev
+ Vite: https://vite.dev
+ TypeScript documentation: https://www.typescriptlang.org/docs/
+ FastAPI documentation: https://fastapi.tiangolo.com
+ Pydantic documentation: https://docs.pydantic.dev
+ SQLAlchemy documentation: https://docs.sqlalchemy.org
+ Alembic documentation: https://alembic.sqlalchemy.org
+ PostgreSQL documentation: https://www.postgresql.org/docs/
+ PostGIS documentation: https://postgis.net/documentation/
+ Supabase documentation: https://supabase.com/docs
+ OSRM Table service API: https://project-osrm.org/docs/v5.24.0/api/#table-service
+ OSRM demo server policy: https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server
+ pytest: https://docs.pytest.org
+ Vitest: https://vitest.dev
+ Ruff: https://docs.astral.sh/ruff/
+Project design documents (internal): Project Charter; SRS/PRD; System Architecture and TDD; Database Schema and API Contracts;
+Project Roadmap; Operations and Developer Guide; Phase 4A matching-engine design; Phase 4B matching algorithm, implementation,
+testing and remediation reports; Phase 4B post-merge verification report.

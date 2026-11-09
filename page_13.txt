@@ -1,0 +1,59 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 13
+Section 10  |  Innovation
+Smart Share's contribution is not simply splitting a cab fare. It is deciding which strangers can practically
+share a journey, and showing why. It combines several checks that simple proximity matching lacks:
+  Location-aware pickup discovery using spatial indexing.
+ Time compatibility through shared departure-window overlap.
+ Direction and destination compatibility, so a rider heading north is never paired with one heading south.
+ Multiple valid pickup/drop-off sequences, with riders required to share the cab for part of the trip.
+ Detour-aware feasibility: each rider's extra time is measured against their own limit.
+ Capacity constraints as a hard gate.
+ Ranked, explainable results, with honest labels when routing is approximate.
+Traditional approach
+Individual
+passengers
+Separate
+bookings
+Separate
+ journeys
+Smart Share
+Compatible
+ride requests
+Intelligent matching
+(place, time, direction,
+ detour, seats)
+Potential shared
+journey (suggested)
+Figure 6. Traditional approach versus Smart Share.
+This report makes no claim that Smart Share is the first or only ride-pooling idea. Its focus is a transparent,
+constraint-driven matching engine designed for Mumbai's geography.
+Section 11  |  Impact
+Economic
+Possible lower individual
+ fare outlay; better
+ seat utilisation
+Environmental
+Possibly fewer separate
+ trips, less fuel and
+emissions if pooling
+ replaces solo trips
+Social
+Easier discovery of
+ fellow travellers;
+better coordination
+Operational
+More use of existing
+ vehicle capacity
+EXPECTED impact only. No savings, emissions or adoption figures have been measured.
+Figure 7. Expected impact (not measured).
+ Economic: sharing a cab could reduce what each rider pays, and fills seats that would otherwise travel empty.
+ Environmental: where pooling replaces separate trips, fewer vehicle trips could mean less fuel use and fewer
+emissions.
+ Social: easier discovery of fellow travellers and simpler coordination, potentially making transport more
+accessible.
+ Operational: better use of existing vehicle capacity.
+None of these benefits has been measured. Realising them depends on user adoption, on fare logic still to be
+built, and on matches converting into real shared trips, which the current version does not handle.

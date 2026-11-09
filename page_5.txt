@@ -1,0 +1,35 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 5
+Section 3  |  Proposed Solution
+Smart Share connects riders through ride requests. A user signs in, creates a request, and asks the system to
+find compatible requests from other users.
+  Create a ride request. Choose a pickup and a destination (the current UI offers Mumbai landmark presets
+such as BKC, Airport T2, Powai, Lower Parel, Dadar and Andheri West).
+ Select a departure window (earliest and latest acceptable departure).
+ State seats needed and the maximum extra minutes the rider will accept.
+ Find matches. The backend discovers candidates, filters them and evaluates routes.
+ Review ranked suggestions with score factors, each rider's estimated detour, the stop order and a
+routing-accuracy notice.
+1  Sign in
+Supabase Auth
+2  Create ride
+ request
+3  Pickup, destination
+ + departure window
+4  Seats and
+max extra minutes
+5  Find matches
+ (on demand)
+6  Review ranked
+suggestions + why
+Suggestions only: accepting a match, group formation, booking and payment are not part of the current build.
+ User journey, as implemented in Phases 2-4B
+Figure 1. User journey in the implemented application.
+How candidates are found: the engine shortlists active, unexpired requests from other users within 2 km of the
+pickup, with overlapping departure windows and combined seats of at most four. It then rejects pairs travelling in
+clearly different directions, evaluates the valid pickup/drop-off orders using road-network durations, and discards
+any order in which a rider's extra time exceeds their own limit. Survivors are scored and the top five are returned.
+Scope note. The documentation does not describe automatic cab booking, driver assignment or payments as
+implemented, and this report does not claim them.

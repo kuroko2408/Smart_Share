@@ -1,0 +1,21 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 6
+Section 4  |  Objectives
+Technical objectives
+  Discover compatible passengers with location-aware spatial queries (PostGIS geography, GiST index).
+ Apply time-aware matching through departure-window intersection.
+ Evaluate direction and destination compatibility, and reject backtracking pairings.
+ Evaluate valid pickup/drop-off orders and keep each rider's detour within their stated limit.
+ Keep results explainable, deterministic and clearly labelled where routing is approximate.
+ Establish a scalable foundation: separated modules, replaceable routing provider, migrations and automated
+tests.
+User-impact objectives
+  Make it easy to find fellow travellers, and reduce reliance on separate individual cab journeys.
+ Improve use of available seats.
+ Minimise unnecessary detours for every rider.
+ Offer an accessible, mobile-first experience with a simple request form.
+ Help riders understand why a suggestion was made.
+The user-impact objectives are design goals. The project's original pilot targets (for example 30% of eligible
+requests matched, 20% estimated savings) have not yet been tested and are not reported as achieved.

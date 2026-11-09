@@ -1,0 +1,31 @@
+SMART SHARE
+NOVEX 2026  |  Final Project Report
+Same Direction. Similar Timing. One Shared Ride.
+Page 11
+Challenge
+Resolution
+Post-merge audit: real PostGIS returned raw hex EWKB for
+geography columns, crashing coordinate parsing
+Query now selects ST_AsText; parser also decodes
+EWKB/WKB; regression tests added
+Spatial index use at tiny data volume
+Verified the predicate is GiST-compatible; planner chose the
+temporal index on a two-row table
+Table 3. Key challenges.
+Section 9  |  Results / Screenshots
+No screenshots were available in the documents reviewed, so labelled placeholders mark where genuine
+captures must be inserted. No mock-ups are shown.
+[ SCREENSHOT PLACEHOLDER ]  1. Homepage
+Landing screen of the running app, mobile viewport.
+[ SCREENSHOT PLACEHOLDER ]  2. Authentication screen
+ Sign-in / sign-up page (hide any email addresses).
+[ SCREENSHOT PLACEHOLDER ]  3. Ride request creation form
+ Form with pickup, destination, window, seats, extra minutes.
+[ SCREENSHOT PLACEHOLDER ]  4. Active ride request listing
+ List of requests with the 'Find matches' button visible.
+[ SCREENSHOT PLACEHOLDER ]  5. Ride request details / edit
+ Detail or edit view of one request.
+[ SCREENSHOT PLACEHOLDER ]  6. Matching interface
+ Loading or results screen after 'Find matches'.
+[ SCREENSHOT PLACEHOLDER ]  7. Ranked candidate results
+ Expanded 'Why this suggestion?' with scores and stop order.
