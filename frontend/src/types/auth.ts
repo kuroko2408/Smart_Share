@@ -27,4 +27,21 @@ export interface AuthSession {
 export interface LoginCredentials {
   email: string;
   password: string;
+  remember_me?: boolean;
+}
+
+export interface SignUpCredentials {
+  full_name: string;
+  email: string;
+  password: string;
+  confirm_password?: string;
+}
+
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface PasswordUpdateRequest {
+  new_password: string;
+  confirm_password?: string;
 }
