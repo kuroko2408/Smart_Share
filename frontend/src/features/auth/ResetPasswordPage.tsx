@@ -1,6 +1,7 @@
 /**
  * Dedicated Password Recovery / Reset Page for Smart Share.
  * Ingests recovery tokens from email redirect and allows users to set a new password.
+ * Cohesive with Smart Share clean mobility design system.
  */
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -49,13 +50,16 @@ export function ResetPasswordPage() {
     const code = searchParams.get('code');
     const supabase = getSupabase();
     if (code && supabase) {
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (!error && data.session) {
-          loginWithToken(data.session.access_token);
-        }
-      }).catch((err) => {
-        console.warn('[reset-password] PKCE exchange error:', err);
-      });
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ data, error }) => {
+          if (!error && data.session) {
+            loginWithToken(data.session.access_token);
+          }
+        })
+        .catch((err) => {
+          console.warn('[reset-password] PKCE exchange error:', err);
+        });
     }
   }, [location, loginWithToken]);
 
@@ -88,17 +92,17 @@ export function ResetPasswordPage() {
   const activeError = localError || authError;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-gray-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="max-w-md w-full bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8 text-center space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900 flex items-center justify-center p-4 sm:p-6">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200/80 p-6 sm:p-8 text-center space-y-6">
         
         {/* Header Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 flex items-center justify-center mx-auto shadow-inner">
-          <KeyRound className="w-7 h-7" />
+        <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+          <KeyRound className="w-6 h-6" />
         </div>
 
         <div>
-          <h1 className="text-2xl font-extrabold text-white">Set New Password</h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
+          <p className="text-xs text-gray-500 mt-1">
             Choose a secure password with at least 6 characters.
           </p>
         </div>
@@ -106,11 +110,11 @@ export function ResetPasswordPage() {
         {/* Success State */}
         {isSuccess ? (
           <div className="space-y-4 py-2">
-            <div className="p-4 bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 text-xs rounded-xl flex items-center gap-3 text-left">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-3 text-left">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
                 <span className="font-bold">Password Updated Successfully!</span>
-                <p className="text-2xs text-emerald-300/90 mt-0.5">
+                <p className="text-2xs text-emerald-700/90 mt-0.5">
                   Your Smart Share account password has been updated. You can now access your cab-pooling dashboard.
                 </p>
               </div>
@@ -119,7 +123,7 @@ export function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => navigate(isAuthenticated ? '/' : '/login')}
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
             >
               <Car className="w-4 h-4" /> Go to Dashboard
             </button>
@@ -129,15 +133,15 @@ export function ResetPasswordPage() {
             {activeError && (
               <div
                 role="alert"
-                className="p-3 bg-red-500/15 border border-red-500/40 text-red-200 text-xs rounded-xl flex items-start gap-2.5"
+                className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2.5"
               >
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1 font-medium">{activeError}</div>
               </div>
             )}
 
             <div>
-              <label htmlFor="new-password" className="block text-xs font-semibold text-gray-300 mb-1.5">
+              <label htmlFor="new-password" className="block text-xs font-semibold text-gray-700 mb-1.5">
                 New Password
               </label>
               <div className="relative">
@@ -151,14 +155,14 @@ export function ResetPasswordPage() {
                   placeholder="At least 6 characters"
                   required
                   minLength={6}
-                  className="w-full bg-slate-800/90 text-white text-xs pl-10 pr-10 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-gray-500 font-mono"
+                  className="w-full bg-white text-gray-900 text-xs pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors placeholder:text-gray-400 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer"
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-0.5"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -166,7 +170,7 @@ export function ResetPasswordPage() {
             </div>
 
             <div>
-              <label htmlFor="confirm-new-password" className="block text-xs font-semibold text-gray-300 mb-1.5">
+              <label htmlFor="confirm-new-password" className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Confirm New Password
               </label>
               <div className="relative">
@@ -180,14 +184,14 @@ export function ResetPasswordPage() {
                   placeholder="Repeat your new password"
                   required
                   minLength={6}
-                  className="w-full bg-slate-800/90 text-white text-xs pl-10 pr-10 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-gray-500 font-mono"
+                  className="w-full bg-white text-gray-900 text-xs pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors placeholder:text-gray-400 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
                   aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showConfirmPassword}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer"
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-0.5"
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -197,7 +201,7 @@ export function ResetPasswordPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer mt-2"
+              className="w-full py-2.5 sm:py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 transition-colors cursor-pointer mt-2"
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               Update Password
@@ -207,7 +211,7 @@ export function ResetPasswordPage() {
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer font-medium"
+                className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer font-medium"
               >
                 Back to Sign In
               </button>
